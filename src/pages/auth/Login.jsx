@@ -40,6 +40,11 @@ export default function Login() {
     setMessage("");
 
     window.setTimeout(() => {
+      sessionStorage.setItem("email", email);
+      sessionStorage.setItem("username", email);
+      sessionStorage.setItem("name", email.split("@")[0] || "Director of Schools");
+      sessionStorage.setItem("designation", "Director");
+      sessionStorage.setItem("school", "Director of Schools");
       setLoading(false);
       navigate("/director/dashboard", { replace: true });
     }, 400);
