@@ -1,3 +1,4 @@
+//renders a section of the audit form, like part A, part B, etc. It can contain fields and tables
 import AuditTable from "./AuditTable";
 
 function FieldGrid({ fields, values, onFieldChange }) {
@@ -115,8 +116,10 @@ const styles = {
     boxShadow: "0 10px 24px rgba(15, 23, 42, 0.04)",
   },
   headingRow: {
-    paddingBottom: 10,
-    borderBottom: "1px solid #e5edf7",
+    padding: "12px 14px",
+    borderLeft: "4px solid #2563eb",
+    borderRadius: 6,
+    background: "#eff6ff",
   },
   heading: {
     margin: 0,

@@ -1,9 +1,10 @@
+//main dashboard for administrative audit 2025-26 form, contains sidebar, header, summary metrics, and module panel with fields and tables
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import AuditTable from "../components/AuditTable";
 import { columnsWithSerial, serialColumnFor } from "../components/tableHelpers";
 import AdministrativeReportPanel from "./AdministrativeReportPanel";
-import { administrativeAuditMeta, administrativeAuditModules } from "./administrativeAuditConfig";
-import EditableAuditTable from "./EditableAuditTable";
+import { administrativeAuditMeta, administrativeAuditModules, administrativeSummaryModule } from "./administrativeAuditConfig";
 
 const STORAGE_KEY = "dypiu-school-appraisal:administrative-audit-2025-26";
 
@@ -26,15 +27,29 @@ const normalizeRows = (columns, rows) => {
   }));
 };
 
+const moduleBlocksFor = (module) =>
+  module.blocks || [
+    ...(module.fields?.length ? [{ type: "fields", fields: module.fields }] : []),
+    ...(module.tables?.length ? [{ type: "tables", tables: module.tables }] : []),
+  ];
+
+const moduleFieldsFor = (module) =>
+  moduleBlocksFor(module)
+    .flatMap((block) => (block.type === "fields" ? block.fields : []))
+    .filter((field) => field.kind !== "heading");
+
+const moduleTablesFor = (module) =>
+  moduleBlocksFor(module).flatMap((block) => (block.type === "tables" ? block.tables : []));
+
 const buildInitialData = () => {
   const fields = {};
   const tables = {};
 
   administrativeAuditModules.forEach((module) => {
-    module.fields?.forEach((field) => {
+    moduleFieldsFor(module).forEach((field) => {
       fields[field.id] = "";
     });
-    module.tables?.forEach((table) => {
+    moduleTablesFor(module).forEach((table) => {
       tables[table.id] = normalizeRows(table.columns, table.initialRows?.length ? table.initialRows : [emptyRowFor(table.columns, 0)]);
     });
   });
@@ -65,7 +80,9 @@ export default function AdministrativeAuditDashboard() {
   const navigate = useNavigate();
   const [activeModuleId, setActiveModuleId] = useState(administrativeAuditModules[0].id);
   const [reportMode, setReportMode] = useState(false);
+  const [printReportAfterRender, setPrintReportAfterRender] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState("");
   const [data, setData] = useState(() => {
     const saved = window.localStorage.getItem(STORAGE_KEY);
     if (!saved) return buildInitialData();
@@ -83,12 +100,11 @@ export default function AdministrativeAuditDashboard() {
   });
 
   const activeModule = useMemo(
-    () => administrativeAuditModules.find((module) => module.id === activeModuleId) || administrativeAuditModules[0],
+    () => administrativeAuditModules.find((module) => module.id === activeModuleId) || administrativeSummaryModule,
     [activeModuleId],
   );
   const profile = getUserProfile();
-  const totalTables = administrativeAuditModules.reduce((count, module) => count + (module.tables?.length || 0), 0);
-  const totalRows = Object.values(data.tables).reduce((count, rows) => count + rows.length, 0);
+  const isSummary = activeModuleId === administrativeSummaryModule.id;
 
   useEffect(() => {
     const payload = {
@@ -97,6 +113,17 @@ export default function AdministrativeAuditDashboard() {
     };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }, [data]);
+
+  useEffect(() => {
+    if (!reportMode || !printReportAfterRender) return undefined;
+
+    const timer = window.setTimeout(() => {
+      window.print();
+      setPrintReportAfterRender(false);
+    }, 150);
+
+    return () => window.clearTimeout(timer);
+  }, [printReportAfterRender, reportMode]);
 
   const setFieldValue = (fieldId, value) => {
     setData((current) => ({
@@ -128,23 +155,6 @@ export default function AdministrativeAuditDashboard() {
     }));
   };
 
-  const deleteRow = (tableId, rowIndex) => {
-    const table = administrativeAuditModules.flatMap((module) => module.tables || []).find((item) => item.id === tableId);
-    if (!table) return;
-
-    setData((current) => {
-      const nextRows = current.tables[tableId].filter((_, index) => index !== rowIndex);
-      return {
-        ...current,
-        tables: {
-          ...current.tables,
-          [tableId]: normalizeRows(table.columns, nextRows.length ? nextRows : [emptyRowFor(table.columns, 0)]),
-        },
-        lastSavedAt: new Date().toISOString(),
-      };
-    });
-  };
-
   const deleteLastRow = (table) => {
     setData((current) => {
       const nextRows = current.tables[table.id].slice(0, -1);
@@ -170,43 +180,39 @@ export default function AdministrativeAuditDashboard() {
     navigate("/login", { replace: true });
   };
 
+  const handleSubmit = () => {
+    setData((current) => ({ ...current, submittedAt: new Date().toISOString(), lastSavedAt: new Date().toISOString() }));
+    setSubmitStatus("Administrative Audit submitted locally. Backend submission will be connected later.");
+  };
+
   if (reportMode) {
     return (
-      <div style={styles.shell}>
-        <Sidebar
-          activeModuleId={activeModuleId}
-          setActiveModuleId={setActiveModuleId}
-          profile={profile}
-          onLogout={() => setShowLogoutModal(true)}
-        />
-        <main style={styles.main}>
-          <AdministrativeReportPanel
-            meta={administrativeAuditMeta}
-            modules={administrativeAuditModules}
-            data={data}
-            onClose={() => setReportMode(false)}
+      <>
+        <PrintStyles />
+        <div className="admin-audit-shell" style={styles.shell}>
+          <Sidebar
+            activeModuleId={activeModuleId}
+            setActiveModuleId={setActiveModuleId}
+            profile={profile}
+            onLogout={() => setShowLogoutModal(true)}
           />
-        </main>
-        {showLogoutModal && <LogoutModal onCancel={() => setShowLogoutModal(false)} onConfirm={handleLogout} />}
-      </div>
+          <main className="admin-audit-main" style={styles.main}>
+            <AdministrativeReportPanel
+              meta={administrativeAuditMeta}
+              modules={administrativeAuditModules}
+              data={data}
+              onClose={() => setReportMode(false)}
+            />
+          </main>
+          {showLogoutModal && <LogoutModal onCancel={() => setShowLogoutModal(false)} onConfirm={handleLogout} />}
+        </div>
+      </>
     );
   }
 
   return (
     <>
-      <style>{`
-        @media (max-width: 900px) {
-          .admin-audit-shell { flex-direction: column; }
-          .admin-audit-sidebar { width: 100% !important; height: auto !important; position: relative !important; }
-          .admin-audit-main { padding: 18px !important; }
-          .admin-audit-header { flex-direction: column; }
-        }
-        @media print {
-          .admin-audit-sidebar, .admin-audit-actions { display: none !important; }
-          .admin-audit-main { padding: 0 !important; }
-          body { background: #fff !important; }
-        }
-      `}</style>
+      <PrintStyles />
       <div className="admin-audit-shell" style={styles.shell}>
         <Sidebar
           activeModuleId={activeModuleId}
@@ -231,77 +237,98 @@ export default function AdministrativeAuditDashboard() {
               <button type="button" style={styles.secondaryButton} onClick={resetDraft}>
                 Reset
               </button>
-              <button type="button" style={styles.secondaryButton} onClick={() => window.print()}>
-                Print
-              </button>
-              <button type="button" style={styles.primaryButton} onClick={() => setReportMode(true)}>
-                Generate Report
-              </button>
             </div>
           </header>
-
-          <section style={styles.summaryGrid}>
-            <Metric label="Modules" value={administrativeAuditModules.length} />
-            <Metric label="Tables" value={totalTables} />
-            <Metric label="Rows Saved" value={totalRows} />
-            <Metric label="Autosave" value={data.lastSavedAt ? "Active" : "Ready"} />
-          </section>
 
           <section style={styles.modulePanel}>
             <div style={styles.moduleHead}>
               <div>
-                <p style={styles.moduleOwner}>{activeModule.owner}</p>
                 <h2 style={styles.moduleTitle}>
-                  {activeModule.number}. {activeModule.title}
+                  {activeModule.number ? `${activeModule.number}. ${activeModule.title}` : activeModule.title}
                 </h2>
+                {activeModule.note && <p style={styles.moduleNote}>{activeModule.note}</p>}
               </div>
               <span style={styles.badge}>Local draft</span>
             </div>
 
-            {!!activeModule.fields?.length && (
-              <div style={styles.fieldGrid}>
-                {activeModule.fields.map((field) => (
-                  <label key={field.id} style={field.type === "textarea" ? styles.wideField : styles.field}>
-                    <span style={styles.fieldLabel}>{field.label}</span>
-                    {field.type === "textarea" ? (
-                      <textarea
-                        value={data.fields[field.id] ?? ""}
-                        onChange={(event) => setFieldValue(field.id, event.target.value)}
-                        style={styles.textarea}
-                        rows={4}
-                      />
-                    ) : (
-                      <input
-                        value={data.fields[field.id] ?? ""}
-                        onChange={(event) => setFieldValue(field.id, event.target.value)}
-                        style={styles.input}
-                        type={field.type || "text"}
-                      />
-                    )}
-                  </label>
-                ))}
-              </div>
-            )}
+            {isSummary ? (
+                <SummaryPanel
+                modules={administrativeAuditModules}
+                data={data}
+                submitStatus={submitStatus}
+                onGenerateReport={() => {
+                  setReportMode(true);
+                  setPrintReportAfterRender(true);
+                }}
+                onSubmit={handleSubmit}
+              />
+            ) : (
+              moduleBlocksFor(activeModule).map((block, index) => {
+              if (block.type === "fields") {
+                return <FieldGrid key={`fields-${index}`} fields={block.fields} data={data} onChange={setFieldValue} />;
+              }
 
-            <div style={styles.tables}>
-              {activeModule.tables?.map((table) => (
-                <EditableAuditTable
-                  key={table.id}
-                  table={table}
+              if (block.type === "text") {
+                return (
+                  <p key={`text-${index}`} style={styles.sectionText}>
+                    {block.text}
+                  </p>
+                );
+              }
+
+              return (
+                <div key={`tables-${index}`} style={styles.tables}>
+                  {block.tables.map((table) => (
+                    <AuditTable
+                      key={table.id}
+                      table={table}
                   rows={data.tables[table.id] || []}
                   onCellChange={setCellValue}
                   onAddRow={addRow}
-                  onDeleteRow={deleteRow}
                   onDeleteLastRow={deleteLastRow}
                 />
-              ))}
-            </div>
+                  ))}
+                </div>
+              );
+              })
+            )}
           </section>
         </main>
 
         {showLogoutModal && <LogoutModal onCancel={() => setShowLogoutModal(false)} onConfirm={handleLogout} />}
       </div>
     </>
+  );
+}
+
+function PrintStyles() {
+  return (
+    <style>{`
+      @media (max-width: 900px) {
+        .admin-audit-shell { flex-direction: column; }
+        .admin-audit-sidebar { width: 100% !important; height: auto !important; position: relative !important; }
+        .admin-audit-main { padding: 18px !important; }
+        .admin-audit-header { flex-direction: column; }
+      }
+      @media print {
+        .admin-audit-sidebar,
+        .admin-audit-actions,
+        .admin-report-actions {
+          display: none !important;
+        }
+        .admin-audit-shell {
+          display: block !important;
+          background: #fff !important;
+        }
+        .admin-audit-main {
+          padding: 0 !important;
+          overflow: visible !important;
+        }
+        body {
+          background: #fff !important;
+        }
+      }
+    `}</style>
   );
 }
 
@@ -332,6 +359,7 @@ function Sidebar({ activeModuleId, setActiveModuleId, profile, onLogout }) {
               {module.number}. {module.title}
             </option>
           ))}
+          <option value={administrativeSummaryModule.id}>{administrativeSummaryModule.title}</option>
         </select>
       </div>
 
@@ -362,11 +390,79 @@ function Sidebar({ activeModuleId, setActiveModuleId, profile, onLogout }) {
   );
 }
 
-function Metric({ label, value }) {
+function FieldGrid({ fields, data, onChange }) {
   return (
-    <div style={styles.metric}>
-      <div style={styles.metricValue}>{value}</div>
-      <div style={styles.metricLabel}>{label}</div>
+    <div style={styles.fieldGrid}>
+      {fields.map((field) => {
+        if (field.kind === "heading") {
+          return (
+            <h3 key={field.id} style={styles.subsectionHeading}>
+              {field.label}
+            </h3>
+          );
+        }
+
+        return (
+          <label key={field.id} style={field.type === "textarea" ? styles.wideField : styles.field}>
+            <span style={styles.fieldLabel}>{field.label}</span>
+            {field.type === "textarea" ? (
+              <textarea
+                value={data.fields[field.id] ?? ""}
+                onChange={(event) => onChange(field.id, event.target.value)}
+                style={styles.textarea}
+                rows={4}
+              />
+            ) : (
+              <input
+                value={data.fields[field.id] ?? ""}
+                onChange={(event) => onChange(field.id, event.target.value)}
+                style={styles.input}
+                type={field.type || "text"}
+              />
+            )}
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
+function SummaryPanel({ modules, data, submitStatus, onGenerateReport, onSubmit }) {
+  const tableCount = modules.reduce((count, module) => count + moduleTablesFor(module).length, 0);
+  const rowCount = Object.values(data.tables).reduce((count, rows) => count + rows.length, 0);
+  const filledFields = Object.values(data.fields).filter((value) => String(value || "").trim()).length;
+
+  return (
+    <div style={styles.summaryPanel}>
+      <div style={styles.summaryGrid}>
+        <div style={styles.summaryCard}>
+          <strong style={styles.summaryValue}>{modules.length}</strong>
+          <span>Sections</span>
+        </div>
+        <div style={styles.summaryCard}>
+          <strong style={styles.summaryValue}>{tableCount}</strong>
+          <span>Tables</span>
+        </div>
+        <div style={styles.summaryCard}>
+          <strong style={styles.summaryValue}>{rowCount}</strong>
+          <span>Rows</span>
+        </div>
+        <div style={styles.summaryCard}>
+          <strong style={styles.summaryValue}>{filledFields}</strong>
+          <span>Fields filled</span>
+        </div>
+      </div>
+
+      <div style={styles.summaryActions}>
+        <button type="button" style={styles.secondaryButton} onClick={onGenerateReport}>
+          Generate Report
+        </button>
+        <button type="button" style={styles.primaryButton} onClick={onSubmit}>
+          Submit
+        </button>
+      </div>
+
+      {submitStatus && <div style={styles.submitStatus}>{submitStatus}</div>}
     </div>
   );
 }
@@ -632,35 +728,12 @@ const styles = {
     fontWeight: 900,
     cursor: "pointer",
   },
-  summaryGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-    gap: 12,
-    margin: "16px 0",
-  },
-  metric: {
-    border: "1px solid #dbe3ef",
-    borderRadius: 10,
-    background: "#fff",
-    padding: "14px 16px",
-  },
-  metricValue: {
-    color: "#0f172a",
-    fontSize: 24,
-    fontWeight: 900,
-  },
-  metricLabel: {
-    color: "#64748b",
-    fontSize: 11,
-    fontWeight: 900,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
   modulePanel: {
     border: "1px solid #dbe3ef",
     borderRadius: 12,
     background: "#fff",
     padding: 18,
+    marginTop: 16,
     boxShadow: "0 12px 28px rgba(15,23,42,0.05)",
   },
   moduleHead: {
@@ -668,22 +741,22 @@ const styles = {
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 16,
-    paddingBottom: 14,
-    borderBottom: "1px solid #e5edf7",
+    padding: "12px 14px",
+    borderLeft: "4px solid #2563eb",
+    borderRadius: 6,
+    background: "#eff6ff",
     marginBottom: 16,
-  },
-  moduleOwner: {
-    margin: "0 0 4px",
-    color: "#2563eb",
-    fontSize: 11,
-    fontWeight: 900,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
   },
   moduleTitle: {
     margin: 0,
     color: "#0f172a",
     fontSize: 23,
+  },
+  moduleNote: {
+    margin: "6px 0 0",
+    color: "#475569",
+    fontSize: 13,
+    fontWeight: 800,
   },
   badge: {
     borderRadius: 999,
@@ -698,6 +771,19 @@ const styles = {
     gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
     gap: 14,
     marginBottom: 16,
+  },
+  sectionText: {
+    margin: "0 0 16px",
+    color: "#0f172a",
+    fontSize: 14,
+    fontWeight: 800,
+  },
+  subsectionHeading: {
+    gridColumn: "1 / -1",
+    margin: "4px 0 0",
+    color: "#0f172a",
+    fontSize: 15,
+    fontWeight: 900,
   },
   field: {
     display: "flex",
@@ -739,6 +825,48 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: 14,
+  },
+  summaryPanel: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 16,
+  },
+  summaryGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: 12,
+  },
+  summaryCard: {
+    border: "1px solid #dbe3ef",
+    borderRadius: 10,
+    background: "#f8fafc",
+    padding: "14px 16px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+    color: "#64748b",
+    fontSize: 11,
+    fontWeight: 900,
+    textTransform: "uppercase",
+  },
+  summaryValue: {
+    color: "#0f172a",
+    fontSize: 26,
+    lineHeight: 1,
+  },
+  summaryActions: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: 10,
+  },
+  submitStatus: {
+    border: "1px solid #bbf7d0",
+    borderRadius: 8,
+    background: "#f0fdf4",
+    color: "#166534",
+    padding: "10px 12px",
+    fontSize: 13,
+    fontWeight: 800,
   },
   modalBackdrop: {
     position: "fixed",

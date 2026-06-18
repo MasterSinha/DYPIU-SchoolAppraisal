@@ -1,3 +1,9 @@
+const moduleBlocksFor = (module) =>
+  module.blocks || [
+    ...(module.fields?.length ? [{ type: "fields", fields: module.fields }] : []),
+    ...(module.tables?.length ? [{ type: "tables", tables: module.tables }] : []),
+  ];
+
 export default function AdministrativeReportPanel({ meta, modules, data, onClose }) {
   return (
     <div style={styles.panel}>
@@ -9,12 +15,9 @@ export default function AdministrativeReportPanel({ meta, modules, data, onClose
           <p style={styles.text}>{meta.act}</p>
           <p style={styles.year}>Academic Year {meta.academicYear}</p>
         </div>
-        <div style={styles.actions}>
+        <div className="admin-report-actions" style={styles.actions}>
           <button type="button" style={styles.secondary} onClick={onClose}>
             Close
-          </button>
-          <button type="button" style={styles.primary} onClick={() => window.print()}>
-            Print Report
           </button>
         </div>
       </div>
@@ -25,22 +28,50 @@ export default function AdministrativeReportPanel({ meta, modules, data, onClose
             <h3 style={styles.moduleTitle}>
               {module.number}. {module.title}
             </h3>
+            {module.note && <p style={styles.moduleNote}>{module.note}</p>}
 
-            {!!module.fields?.length && (
-              <div style={styles.fieldGrid}>
-                {module.fields.map((field) => (
-                  <div key={field.id} style={styles.fieldBlock}>
-                    <div style={styles.fieldLabel}>{field.label}</div>
-                    <div style={styles.fieldValue}>{data.fields[field.id] || "-"}</div>
+            {moduleBlocksFor(module).map((block, index) => {
+              if (block.type === "fields") {
+                return (
+                  <div key={`fields-${index}`} style={styles.fieldGrid}>
+                    {block.fields.map((field) => {
+                      if (field.kind === "heading") {
+                        return (
+                          <h4 key={field.id} style={styles.subsectionHeading}>
+                            {field.label}
+                          </h4>
+                        );
+                      }
+
+                      return (
+                        <div key={field.id} style={styles.fieldBlock}>
+                          <div style={styles.fieldLabel}>{field.label}</div>
+                          <div style={styles.fieldValue}>{data.fields[field.id] || "-"}</div>
+                        </div>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
-            )}
+                );
+              }
 
-            {!!module.tables?.length &&
-              module.tables.map((table) => (
+              if (block.type === "text") {
+                return (
+                  <p key={`text-${index}`} style={styles.sectionText}>
+                    {block.text}
+                  </p>
+                );
+              }
+
+              return block.tables.map((table) => (
                 <div key={table.id} style={styles.tableBlock}>
                   <h4 style={styles.tableTitle}>{table.title}</h4>
+                  {!!table.notes?.length && (
+                    <div style={styles.notes}>
+                      {table.notes.map((note) => (
+                        <div key={note}>{note}</div>
+                      ))}
+                    </div>
+                  )}
                   <div style={styles.scroller}>
                     <table style={styles.table}>
                       <thead>
@@ -53,8 +84,8 @@ export default function AdministrativeReportPanel({ meta, modules, data, onClose
                         </tr>
                       </thead>
                       <tbody>
-                        {(data.tables[table.id] || []).map((row, index) => (
-                          <tr key={`${table.id}-${index}`}>
+                        {(data.tables[table.id] || []).map((row, rowIndex) => (
+                          <tr key={`${table.id}-${rowIndex}`}>
                             {table.columns.map((column) => (
                               <td key={column} style={styles.td}>
                                 {row[column] || "-"}
@@ -66,7 +97,8 @@ export default function AdministrativeReportPanel({ meta, modules, data, onClose
                     </table>
                   </div>
                 </div>
-              ))}
+              ));
+            })}
           </section>
         ))}
       </div>
@@ -118,15 +150,6 @@ const styles = {
     gap: 10,
     alignItems: "flex-start",
   },
-  primary: {
-    border: "none",
-    borderRadius: 8,
-    background: "#2563eb",
-    color: "#fff",
-    padding: "10px 14px",
-    fontWeight: 900,
-    cursor: "pointer",
-  },
   secondary: {
     border: "1px solid #cbd5e1",
     borderRadius: 8,
@@ -149,14 +172,37 @@ const styles = {
   },
   moduleTitle: {
     margin: "0 0 14px",
+    padding: "12px 14px",
+    borderLeft: "4px solid #2563eb",
+    borderRadius: 6,
+    background: "#eff6ff",
     color: "#0f172a",
     fontSize: 19,
+  },
+  moduleNote: {
+    margin: "-6px 0 14px",
+    color: "#475569",
+    fontSize: 13,
+    fontWeight: 800,
   },
   fieldGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
     gap: 10,
     marginBottom: 14,
+  },
+  sectionText: {
+    margin: "0 0 14px",
+    color: "#0f172a",
+    fontSize: 13,
+    fontWeight: 800,
+  },
+  subsectionHeading: {
+    gridColumn: "1 / -1",
+    margin: "4px 0 0",
+    color: "#0f172a",
+    fontSize: 14,
+    fontWeight: 900,
   },
   fieldBlock: {
     border: "1px solid #e2e8f0",
@@ -180,8 +226,18 @@ const styles = {
   },
   tableTitle: {
     margin: "0 0 8px",
+    padding: "10px 12px",
+    borderLeft: "4px solid #2563eb",
+    borderRadius: 6,
+    background: "#eff6ff",
     color: "#1e293b",
     fontSize: 15,
+  },
+  notes: {
+    margin: "0 0 8px",
+    color: "#334155",
+    fontSize: 12,
+    lineHeight: 1.6,
   },
   scroller: {
     overflowX: "auto",

@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+//contains all the schema for academic audit 2025-26 form
+import { useEffect, useMemo, useState } from "react";
+import AuditReportPanel from "./AuditReportPanel";
 import AuditSection from "./AuditSection";
 import { columnsWithSerial, serialColumnFor } from "./tableHelpers";
 
@@ -58,7 +60,7 @@ function buildInitialTables(schema) {
   }, {});
 }
 
-export default function AuditForm({ schema, activeSectionId }) {
+export default function AuditForm({ schema, activeSectionId, reportMode, onReportModeChange }) {
   const initialValues = useMemo(() => buildInitialValues(schema), [schema]);
   const initialTables = useMemo(() => buildInitialTables(schema), [schema]);
   const [values, setValues] = useState(() => {
@@ -80,6 +82,19 @@ export default function AuditForm({ schema, activeSectionId }) {
     }
   });
   const [status, setStatus] = useState("");
+  const [submitStatus, setSubmitStatus] = useState("");
+  const [printReportAfterRender, setPrintReportAfterRender] = useState(false);
+
+  useEffect(() => {
+    if (!reportMode || !printReportAfterRender) return undefined;
+
+    const timer = window.setTimeout(() => {
+      window.print();
+      setPrintReportAfterRender(false);
+    }, 150);
+
+    return () => window.clearTimeout(timer);
+  }, [printReportAfterRender, reportMode]);
 
   const handleFieldChange = (fieldId, value) => {
     setValues((current) => ({ ...current, [fieldId]: value }));
@@ -123,6 +138,29 @@ export default function AuditForm({ schema, activeSectionId }) {
     setStatus("Form cleared.");
   };
 
+  const handleGenerateReport = () => {
+    onReportModeChange(true);
+    setPrintReportAfterRender(true);
+  };
+
+  const handleSubmit = () => {
+    window.localStorage.setItem(draftKeyFor(schema.id), JSON.stringify({ values, tables, submittedAt: new Date().toISOString() }));
+    setSubmitStatus("Academic Audit submitted locally. Backend submission will be connected later.");
+  };
+
+  if (reportMode) {
+    return (
+      <div style={styles.form}>
+        <div className="academic-report-actions" style={styles.actions}>
+          <button type="button" style={styles.secondaryButton} onClick={() => onReportModeChange(false)}>
+            Close
+          </button>
+        </div>
+        <AuditReportPanel schema={schema} values={values} tables={tables} />
+      </div>
+    );
+  }
+
   return (
     <form style={styles.form} onSubmit={(event) => event.preventDefault()}>
       <header style={styles.header}>
@@ -137,9 +175,6 @@ export default function AuditForm({ schema, activeSectionId }) {
           <button type="button" style={styles.secondaryButton} onClick={handleClear}>
             Clear
           </button>
-          <button type="button" style={styles.secondaryButton} onClick={() => window.print()}>
-            Print
-          </button>
           <button type="button" style={styles.primaryButton} onClick={handleSaveDraft}>
             Save Draft
           </button>
@@ -149,22 +184,73 @@ export default function AuditForm({ schema, activeSectionId }) {
       {status && <div style={styles.status}>{status}</div>}
 
       <div style={styles.sections}>
-        {schema.sections
-          .filter((section) => !activeSectionId || section.id === activeSectionId)
-          .map((section) => (
-          <AuditSection
-            key={section.id}
-            section={section}
+        {activeSectionId === "summary" ? (
+          <SummaryPanel
+            schema={schema}
             values={values}
             tables={tables}
-            onFieldChange={handleFieldChange}
-            onTableChange={handleTableChange}
-            onAddRow={handleAddRow}
-            onDeleteLastRow={handleDeleteLastRow}
+            submitStatus={submitStatus}
+            onGenerateReport={handleGenerateReport}
+            onSubmit={handleSubmit}
           />
-        ))}
+        ) : (
+          schema.sections
+            .filter((section) => !activeSectionId || section.id === activeSectionId)
+            .map((section) => (
+              <AuditSection
+                key={section.id}
+                section={section}
+                values={values}
+                tables={tables}
+                onFieldChange={handleFieldChange}
+                onTableChange={handleTableChange}
+                onAddRow={handleAddRow}
+                onDeleteLastRow={handleDeleteLastRow}
+              />
+            ))
+        )}
       </div>
     </form>
+  );
+}
+
+function SummaryPanel({ schema, values, tables, submitStatus, onGenerateReport, onSubmit }) {
+  const tableCount = Object.keys(tables).length;
+  const rowCount = Object.values(tables).reduce((count, rows) => count + rows.length, 0);
+  const filledFields = Object.values(values).filter((value) => String(value || "").trim()).length;
+
+  return (
+    <section style={styles.summaryPanel}>
+      <div style={styles.summaryGrid}>
+        <div style={styles.summaryCard}>
+          <strong style={styles.summaryValue}>{schema.sections.length}</strong>
+          <span>Sections</span>
+        </div>
+        <div style={styles.summaryCard}>
+          <strong style={styles.summaryValue}>{tableCount}</strong>
+          <span>Tables</span>
+        </div>
+        <div style={styles.summaryCard}>
+          <strong style={styles.summaryValue}>{rowCount}</strong>
+          <span>Rows</span>
+        </div>
+        <div style={styles.summaryCard}>
+          <strong style={styles.summaryValue}>{filledFields}</strong>
+          <span>Fields filled</span>
+        </div>
+      </div>
+
+      <div style={styles.summaryActions}>
+        <button type="button" style={styles.secondaryButton} onClick={onGenerateReport}>
+          Generate Report
+        </button>
+        <button type="button" style={styles.primaryButton} onClick={onSubmit}>
+          Submit
+        </button>
+      </div>
+
+      {submitStatus && <div style={styles.status}>{submitStatus}</div>}
+    </section>
   );
 }
 
@@ -250,5 +336,42 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: 18,
+  },
+  summaryPanel: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 16,
+    padding: 20,
+    border: "1px solid #dbe3ef",
+    borderRadius: 8,
+    background: "#fff",
+  },
+  summaryGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: 12,
+  },
+  summaryCard: {
+    border: "1px solid #dbe3ef",
+    borderRadius: 10,
+    background: "#f8fafc",
+    padding: "14px 16px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+    color: "#64748b",
+    fontSize: 11,
+    fontWeight: 900,
+    textTransform: "uppercase",
+  },
+  summaryValue: {
+    color: "#0f172a",
+    fontSize: 26,
+    lineHeight: 1,
+  },
+  summaryActions: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: 10,
   },
 };

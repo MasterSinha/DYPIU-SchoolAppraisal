@@ -1,15 +1,44 @@
+//academic & administrative table add rows and delete last row functionality , sr no, table heading(blue)
 import { columnsWithSerial, serialColumnFor } from "./tableHelpers";
 
 const isAttachmentColumn = (column) => /proof\s+as\s+an?\s+attachment/i.test(column);
 
-export default function AuditTable({ table, rows, values = {}, onFieldChange, onChange, onAddRow, onDeleteLastRow }) {
+export default function AuditTable({
+  table,
+  rows,
+  values = {},
+  onFieldChange,
+  onChange,
+  onCellChange,
+  onAddRow,
+  onDeleteLastRow,
+}) {
   const columns = columnsWithSerial(table.columns);
+
+  const handleCellChange = (rowIndex, column, value) => {
+    if (onChange) {
+      onChange(rowIndex, column, value);
+      return;
+    }
+
+    onCellChange?.(table.id, rowIndex, column, value);
+  };
 
   return (
     <section style={styles.wrap}>
       {table.showTitle !== false && (
         <div style={styles.header}>
           <h3 style={styles.title}>{table.title}</h3>
+        </div>
+      )}
+
+      {!!table.notes?.length && (
+        <div style={styles.notes}>
+          {table.notes.map((note) => (
+            <div key={note} style={styles.note}>
+              {note}
+            </div>
+          ))}
         </div>
       )}
 
@@ -34,7 +63,7 @@ export default function AuditTable({ table, rows, values = {}, onFieldChange, on
           <thead>
             <tr>
               {columns.map((column) => (
-                <th key={column} style={styles.th}>
+                <th key={column} style={{ ...styles.th, ...(serialColumnFor([column]) ? styles.serialCell : {}) }}>
                   {column}
                 </th>
               ))}
@@ -44,7 +73,7 @@ export default function AuditTable({ table, rows, values = {}, onFieldChange, on
             {rows.map((row, rowIndex) => (
               <tr key={`${table.id}-${rowIndex}`}>
                 {columns.map((column) => (
-                  <td key={column} style={styles.td}>
+                  <td key={column} style={{ ...styles.td, ...(serialColumnFor([column]) ? styles.serialCell : {}) }}>
                     {isAttachmentColumn(column) ? (
                       <div style={styles.attachmentCell}>
                         <input
@@ -52,7 +81,7 @@ export default function AuditTable({ table, rows, values = {}, onFieldChange, on
                           onChange={(event) => {
                             const file = event.target.files?.[0];
                             if (!file) return;
-                            onChange(rowIndex, column, {
+                            handleCellChange(rowIndex, column, {
                               name: file.name,
                               url: URL.createObjectURL(file),
                             });
@@ -70,9 +99,10 @@ export default function AuditTable({ table, rows, values = {}, onFieldChange, on
                     ) : (
                       <input
                         value={row[column] ?? ""}
-                        onChange={(event) => onChange(rowIndex, column, event.target.value)}
+                        onChange={(event) => handleCellChange(rowIndex, column, event.target.value)}
                         style={{
                           ...styles.cellInput,
+                          ...(serialColumnFor([column]) ? styles.serialInput : {}),
                           background: serialColumnFor([column]) ? "#f8fafc" : "#fff",
                         }}
                         readOnly={Boolean(serialColumnFor([column]))}
@@ -118,15 +148,28 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     gap: 12,
+    margin: "12px 14px",
     padding: "12px 14px",
     borderBottom: "1px solid #e5edf7",
-    background: "#f8fafc",
+    borderLeft: "4px solid #2563eb",
+    borderRadius: 6,
+    background: "#eff6ff",
   },
   title: {
     margin: 0,
-    fontSize: 15,
+    fontSize: 18,
     lineHeight: 1.35,
     color: "#0f172a",
+    fontWeight: 900,
+  },
+  notes: {
+    padding: "0 14px 12px",
+    color: "#334155",
+    fontSize: 13,
+    lineHeight: 1.6,
+  },
+  note: {
+    paddingLeft: 8,
   },
   embeddedFields: {
     display: "grid",
@@ -174,6 +217,11 @@ const styles = {
     textAlign: "left",
     whiteSpace: "normal",
   },
+  serialCell: {
+    width: 72,
+    minWidth: 72,
+    maxWidth: 72,
+  },
   td: {
     padding: 8,
     borderBottom: "1px solid #edf2f7",
@@ -189,6 +237,13 @@ const styles = {
     color: "#0f172a",
     background: "#fff",
     outline: "none",
+  },
+  serialInput: {
+    minWidth: 44,
+    width: 54,
+    textAlign: "center",
+    fontWeight: 700,
+    fontSize: 15,
   },
   secondaryButton: {
     flex: "0 0 auto",

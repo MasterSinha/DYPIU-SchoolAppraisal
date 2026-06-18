@@ -9,8 +9,8 @@ export const administrativeAuditMeta = {
 
 export const administrativeAuditModules = [
   {
-    id: "university-information",
-    number: "1",
+    id: "section-a-university-information",
+    number: "A",
     title: "University Information",
     owner: "Registrar",
     fields: [
@@ -25,29 +25,15 @@ export const administrativeAuditModules = [
       { id: "registrarEmail", label: "Registrar e-Mail Id", type: "email" },
       { id: "accreditation", label: "Accreditation status & Agency", type: "textarea" },
     ],
-  },
-  {
-    id: "courses-offered",
-    number: "2",
-    title: "Courses Offered",
-    owner: "Registrar",
     tables: [
       {
         id: "coursesOffered",
-        title: "Courses Offered",
+        title: "1. Courses Offered",
         columns: ["Sr No", "Name of the Program", "Level (UG/PG)", "Intake", "Year of Commencement of the program"],
       },
-    ],
-  },
-  {
-    id: "student-statistics",
-    number: "3",
-    title: "Student Statistics",
-    owner: "Registrar",
-    tables: [
       {
         id: "studentStatistics",
-        title: "Total Number of Students in the university",
+        title: "2. Total Number of Students in the university",
         columns: ["Sr No", "Category", "U.G.", "P.G.", "Ph.D.", "Value added / skill Courses"],
         initialRows: [
           { "Sr No": "1", Category: "Open" },
@@ -57,17 +43,9 @@ export const administrativeAuditModules = [
           { "Sr No": "5", Category: "Others" },
         ],
       },
-    ],
-  },
-  {
-    id: "statutory-bodies",
-    number: "4",
-    title: "Statutory Bodies & ATR",
-    owner: "Registrar",
-    tables: [
       {
         id: "statutoryBodies",
-        title: "Statutory Body Meetings and ATR",
+        title: "3. Statutory Body Meetings and ATR",
         columns: ["Sr No", "Body / Cell", "Meetings Conducted", "ATR Status", "Remarks / Link"],
         initialRows: [
           { "Sr No": "1", "Body / Cell": "Governing Body" },
@@ -83,17 +61,9 @@ export const administrativeAuditModules = [
           { "Sr No": "11", "Body / Cell": "Any Other Body / Cell" },
         ],
       },
-    ],
-  },
-  {
-    id: "audit-records",
-    number: "5",
-    title: "Audit Records",
-    owner: "Registrar",
-    tables: [
       {
         id: "auditRecords",
-        title: "Audits Completed",
+        title: "4. Audits Completed",
         columns: ["Sr No", "Audit Type", "Completed Yes / No", "Date", "Remarks / Link"],
         initialRows: [
           { "Sr No": "1", "Audit Type": "Financial Audit" },
@@ -104,86 +74,101 @@ export const administrativeAuditModules = [
           { "Sr No": "6", "Audit Type": "Academic and Administrative Audit" },
         ],
       },
-    ],
-  },
-  {
-    id: "scholarships",
-    number: "6",
-    title: "Scholarships",
-    owner: "Registrar",
-    tables: [
       {
         id: "scholarshipSummary",
-        title: "Scholarship Details",
+        title: "5. Scholarship Details",
         columns: ["Sr No", "Year", "Title of Scholarship", "Number of the Students", "Amount received", "Awarding Agency", "Awarding Organization"],
       },
       {
         id: "scholarshipStudents",
-        title: "Scholarship Student Details",
+        title: "6. Scholarship Student Details",
         columns: ["Sr No", "Year", "Title of Scholarship", "Name of the Students", "Amount received", "Awarding Agency"],
       },
     ],
   },
   {
-    id: "faculty-staff-details",
-    number: "7",
-    title: "Faculty & Staff Details",
+    id: "section-b-faculty-staff-details",
+    number: "B",
+    title: "Faculty and Staff Details",
     owner: "HR",
-    fields: [
-      { id: "phdQualification", label: "Faculty members with Ph.D qualification" },
-      { id: "pgQualification", label: "Post Graduation Qualification" },
-      { id: "otherQualification", label: "Any Other Qualification" },
-      { id: "studentFacultyRatio", label: "Student Faculty Ratio" },
-    ],
-    tables: [
+    blocks: [
       {
-        id: "facultyInformation",
-        title: "Faculty Information",
-        columns: ["Sr No", "Cadre", "Required", "Regular", "Contract"],
-        initialRows: [
-          { "Sr No": "1", Cadre: "Professors" },
-          { "Sr No": "2", Cadre: "Associate Professors" },
-          { "Sr No": "3", Cadre: "Assistant Professor" },
-          { "Sr No": "4", Cadre: "Total" },
+        type: "tables",
+        tables: [
+          {
+            id: "facultyInformation",
+            title: "Faculty Information",
+            columns: ["Sr No", "Cadre", "Required", "Regular", "Contract"],
+            initialRows: [
+              { "Sr No": "1", Cadre: "Professors" },
+              { "Sr No": "2", Cadre: "Associate Professors" },
+              { "Sr No": "3", Cadre: "Assistant Professor" },
+              { "Sr No": "4", Cadre: "Total" },
+            ],
+          },
         ],
       },
       {
-        id: "facultyTenure",
-        title: "Teaching Experience of the Faculty in DYPIU",
-        columns: ["Sr No", "Tenure", "No. of Faculty"],
-        initialRows: [
-          { "Sr No": "1", Tenure: "More than 5 Years" },
-          { "Sr No": "2", Tenure: "Between 3 to 5 Years" },
-          { "Sr No": "3", Tenure: "Between 1 to 3 Years" },
-          { "Sr No": "4", Tenure: "Below 1 Year" },
+        type: "fields",
+        fields: [
+          { id: "phdQualification", label: "(a)(i) Faculty members with Ph.D qualification" },
+          { id: "pgQualification", label: "(a)(ii) Post Graduation Qualification" },
+          { id: "otherQualification", label: "(a)(iii) Any Other Qualification" },
+          { id: "studentFacultyRatio", label: "(b) Student Faculty Ratio" },
         ],
       },
       {
-        id: "facultyExperience",
-        title: "Consolidated Experience of the teaching faculty considering outside experience",
-        columns: ["S.No", "Name of the Faculty", "Designation", "Highest Qualification", "Date of Joining", "Experience in DYPIU", "Experience before joining DYPIU (Teaching)", "Total Experience"],
-      },
-      {
-        id: "supportingStaff",
-        title: "Details of Admin and Supporting Staff",
-        columns: ["S.No", "Name of the Supporting Staff", "Designation", "Highest Qualification", "Date of Joining in DYPIU", "Experience in DYPIU", "Experience before joining DYPIU", "Total Experience"],
-      },
-      {
-        id: "staffTraining",
-        title: "Administrative training / professional development program organized for non-teaching staff",
-        columns: ["Sr no", "Title of the Course", "Details of resource person", "Duration and date of conduction", "No of beneficiaries"],
+        type: "tables",
+        tables: [
+          {
+            id: "facultyTenure",
+            title: "(c) Teaching Experience of the Faculty in DYPIU",
+            columns: ["Sr No", "Tenure", "No. of Faculty"],
+            initialRows: [
+              { "Sr No": "1", Tenure: "More than 5 Years" },
+              { "Sr No": "2", Tenure: "Between 3 to 5 Years" },
+              { "Sr No": "3", Tenure: "Between 1 to 3 Years" },
+              { "Sr No": "4", Tenure: "Below 1 Year" },
+            ],
+          },
+          {
+            id: "facultyExperience",
+            title: "(d) Consolidated Experience of the teaching faculty considering outside experience",
+            columns: ["S.No", "Name of the Faculty", "Designation", "Highest Qualification", "Date of Joining", "Experience in DYPIU", "Experience before joining DYPIU (Teaching)", "Total Experience"],
+          },
+          {
+            id: "supportingStaff",
+            title: "Details of Admin and Supporting Staff",
+            notes: [
+              "(a) Registrar",
+              "(b) Dy Registrar / Asst Registrar",
+              "(c) Librarian",
+              "(d) Accountant",
+              "(e) Lab Assistants",
+              "(f) Technicians",
+              "(g) Programmers",
+              "(h) etc",
+            ],
+            columns: ["S.No", "Name of the Supporting Staff", "Designation", "Highest Qualification", "Date of Joining in DYPIU", "Experience in DYPIU", "Experience before joining DYPIU", "Total Experience"],
+          },
+          {
+            id: "staffTraining",
+            title: "Administrative training / professional development program organized for non-teaching staff",
+            columns: ["Sr no", "Title of the Course", "Details of resource person", "Duration and date of conduction", "No of beneficiaries"],
+          },
+        ],
       },
     ],
   },
   {
-    id: "infrastructure",
-    number: "8",
-    title: "Infrastructure",
+    id: "section-c-infrastructure-details",
+    number: "C",
+    title: "Infrastructure Details",
     owner: "Registrar",
     tables: [
       {
         id: "buildingInfrastructure",
-        title: "Building Infrastructure",
+        title: "1. Building Infrastructure",
         columns: ["Sr No", "Facilities", "No."],
         initialRows: [
           { "Sr No": "1", Facilities: "Classrooms" },
@@ -200,7 +185,7 @@ export const administrativeAuditModules = [
       },
       {
         id: "libraryInfrastructure",
-        title: "Library & Research Infrastructure",
+        title: "2. Library & Research Infrastructure",
         columns: ["Sr No", "Facilities", "No."],
         initialRows: [
           { "Sr No": "1", Facilities: "Books (Title and Volumes)" },
@@ -228,7 +213,7 @@ export const administrativeAuditModules = [
       },
       {
         id: "itInfrastructure",
-        title: "I.T. (Computer) Infrastructure",
+        title: "3. I.T. (Computer) Infrastructure",
         columns: ["Sr No", "Facilities", "No."],
         initialRows: [
           { "Sr No": "1", Facilities: "No. of Computers in Institute" },
@@ -243,12 +228,12 @@ export const administrativeAuditModules = [
       },
       {
         id: "sportsFacilities",
-        title: "Facilities for cultural activities, yoga, games, sports etc",
+        title: "4. Facilities for cultural activities, yoga, games, sports etc",
         columns: ["Sr No", "Facilities", "No."],
       },
       {
         id: "divyangajanFacilities",
-        title: "Facilities for Divyangajan",
+        title: "5. Facilities for Divyangajan",
         columns: ["Sr No", "Facilities", "Available Yes / No"],
         initialRows: [
           { "Sr No": "1", Facilities: "Built environment with ramps / lifts for easy access to classrooms" },
@@ -260,93 +245,103 @@ export const administrativeAuditModules = [
       },
       {
         id: "researchResources",
-        title: "Research Resources",
+        title: "6. Research Resources",
         columns: ["Sr No", "Facilities", "Availability", "Remarks"],
       },
     ],
   },
   {
-    id: "student-activities",
-    number: "9",
-    title: "Student Activities",
+    id: "section-d-student-activities",
+    number: "D",
+    title: "Student Activities (Extension and Outreach Activities)",
     owner: "Dean Student Welfare",
+    note: "(Data to be provided by Dean /Director Student Affairs)",
     tables: [
       {
         id: "hackathons",
-        title: "Hackathons and Ideation workshops",
+        title: "1. Hackathons and Ideation workshops",
         columns: ["Sr No", "Activity details", "Organized by", "Date of conduction", "Number of beneficiaries / Participants"],
       },
       {
         id: "culturalActivities",
-        title: "Cultural Clubs and activities and festivals",
+        title: "2. Cultural Clubs and activities and festivals",
         columns: ["Sr No", "Activity details", "Organized by", "Date of conduction", "Number of beneficiaries / Participants"],
       },
       {
         id: "sportsActivities",
-        title: "Sports clubs / teams and activities",
+        title: "3. Sports clubs / teams and activities",
         columns: ["Sr No", "Activity details", "Organized by", "Date of conduction", "Number of beneficiaries / Participants"],
       },
       {
         id: "communityActivities",
-        title: "Community related activities",
+        title: "4. Community related activities",
         columns: ["Sr No", "Activity details", "Organized by", "Date of conduction", "Number of beneficiaries / Participants"],
       },
       {
         id: "studentAwards",
-        title: "Awards / Prizes / Recognitions",
+        title: "5. Awards / Prizes / Recognitions in curricular and extended curricular areas",
         columns: ["Sr No", "Name of the award", "Team / Individual", "Inter-University / State / National / International", "Name of the event", "Name of the student(s)"],
       },
     ],
   },
   {
-    id: "placements-internships-training",
-    number: "10",
-    title: "Placements, Internships & Training",
+    id: "section-e-placement-training",
+    number: "E",
+    title: "Student Activities (Extension and Outreach Activities)",
     owner: "Dean Placement",
-    fields: [
-      { id: "companiesVisited", label: "Number of companies Visited" },
-      { id: "studentsPlaced", label: "Number of Students Placed" },
-      { id: "highestSalary", label: "Highest Salary offered" },
-      { id: "averageSalary", label: "Average salary offered" },
-      { id: "medianSalary", label: "Median Salary offered" },
-      { id: "internshipOrganizations", label: "Number of Organizations offered Internships" },
-      { id: "studentsInternships", label: "Number of Students carried out Internships" },
-      { id: "stipendInternships", label: "Number of Internships carried out with stipend" },
-      { id: "totalInternships", label: "Total Number of Internships" },
-    ],
-    tables: [
+    note: "(Data to be provided by Dean Industry and Corporate relations, T & P)",
+    blocks: [
       {
-        id: "trainingActivities",
-        title: "Training Activities / Skill development / Soft skills conducted",
-        columns: ["Sr No", "Academic Year", "Title of the Event", "Date of conduction", "No of students benefited"],
+        type: "text",
+        text: "Report on Placement, Internship and Training activities:",
+      },
+      {
+        type: "fields",
+        fields: [
+          { id: "placementActivitiesHeading", kind: "heading", label: "(a) Placement Activities: (School wise list of the students to attach)" },
+          { id: "companiesVisited", label: "(i) Number of companies Visited" },
+          { id: "studentsPlaced", label: "(ii) Number of Students Placed" },
+          { id: "highestSalary", label: "(iii) Highest Salary offered" },
+          { id: "averageSalary", label: "(iv) Average salary offered" },
+          { id: "medianSalary", label: "(v) Median Salary offered" },
+          { id: "internshipActivitiesHeading", kind: "heading", label: "(b) Internship Activities: (School wise list of the students to attach)" },
+          { id: "internshipOrganizations", label: "(i) Number of Organizations offered Internships" },
+          { id: "studentsInternships", label: "(ii) Number of Students carried out Internships" },
+          { id: "stipendInternships", label: "(iii) Number of Internships carried out with stipend" },
+          { id: "totalInternships", label: "(iv) Total Number of Internships" },
+        ],
+      },
+      {
+        type: "tables",
+        tables: [
+          {
+            id: "trainingActivities",
+            title: "(c) Report on Training Activities / Skill development / soft skills conducted",
+            columns: ["Sr No", "Academic Year", "Title of the Event", "Date of conduction", "No of students benefited"],
+          },
+          {
+            id: "industryCollaborations",
+            title: "(d) Industry Collaborations",
+            columns: ["Sr No", "Name of the Organization / Institution / Industry with whom MoU is signed", "Year of signing MoU", "Duration of MoU", "List the actual activities under each MoU"],
+          },
+        ],
       },
     ],
   },
   {
-    id: "industry-collaborations",
-    number: "11",
-    title: "Industry Collaborations",
-    owner: "Dean Placement",
-    tables: [
-      {
-        id: "industryCollaborations",
-        title: "Industry Collaborations",
-        columns: ["Sr No", "Name of the Organization / Institution / Industry with whom MoU is signed", "Year of signing MoU", "Duration of MoU", "List the actual activities under each MoU"],
-      },
-    ],
-  },
-  {
-    id: "audit-observations",
-    number: "12",
-    title: "Audit Observations & Recommendations",
+    id: "section-f-observations-recommendations",
+    number: "F",
+    title: "Observations & Recommendations of the Audit",
     owner: "VC & IQAC",
     fields: [
       { id: "auditObservations", label: "Observations of the Academic Audit Team", type: "textarea" },
       { id: "auditRecommendations", label: "Recommendations of the Audit Team", type: "textarea" },
-      { id: "auditorOne", label: "Auditor 1 Name / Designation / Date", type: "textarea" },
-      { id: "auditorTwo", label: "Auditor 2 Name / Designation / Date", type: "textarea" },
-      { id: "auditorThree", label: "Auditor 3 Name / Designation / Date", type: "textarea" },
-      { id: "auditorFour", label: "Auditor 4 Name / Designation / Date", type: "textarea" },
     ],
   },
 ];
+
+export const administrativeSummaryModule = {
+  id: "summary",
+  number: "",
+  title: "Summary",
+};

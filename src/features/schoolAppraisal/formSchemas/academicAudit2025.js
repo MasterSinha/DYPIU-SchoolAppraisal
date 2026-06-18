@@ -1,3 +1,4 @@
+//contains all the schema for academic audit 2025-26 form
 export const academicAudit2025Schema = {
   id: "academic-audit-2025-26",
   title: "External Academic Audit",
@@ -431,16 +432,34 @@ export const academicAudit2025Schema = {
       title: "Part D - SWOC Analysis",
       tables: [
         {
-          id: "swocAnalysis",
-          title: "SWOC Analysis",
-          columns: ["Sr No", "Category", "Details"],
-          initialRows: [
-            { "Sr No": "1", Category: "Strength" },
-            { "Sr No": "2", Category: "Weaknesses" },
-            { "Sr No": "3", Category: "Opportunities" },
-            { "Sr No": "4", Category: "Challenges" },
-            { "Sr No": "5", Category: "Any other information, which is not covered above" },
-          ],
+          id: "swocStrength",
+          title: "Strength",
+          columns: ["Sr No", "Details"],
+          initialRows: [{ "Sr No": "1", Details: "" }],
+        },
+        {
+          id: "swocWeaknesses",
+          title: "Weaknesses",
+          columns: ["Sr No", "Details"],
+          initialRows: [{ "Sr No": "1", Details: "" }],
+        },
+        {
+          id: "swocOpportunities",
+          title: "Opportunities",
+          columns: ["Sr No", "Details"],
+          initialRows: [{ "Sr No": "1", Details: "" }],
+        },
+        {
+          id: "swocChallenges",
+          title: "Challenges",
+          columns: ["Sr No", "Details"],
+          initialRows: [{ "Sr No": "1", Details: "" }],
+        },
+        {
+          id: "swocOtherInformation",
+          title: "Any other information, which is not covered above",
+          columns: ["Sr No", "Details"],
+          initialRows: [{ "Sr No": "1", Details: "" }],
         },
       ],
     },

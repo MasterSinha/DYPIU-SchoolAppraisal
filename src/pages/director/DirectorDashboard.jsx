@@ -16,6 +16,7 @@ export default function DirectorDashboard() {
   const navigate = useNavigate();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState(academicAudit2025Schema.sections[0].id);
+  const [reportMode, setReportMode] = useState(false);
   const profile = {
     name: sessionStorage.getItem("name") || "Director of Schools",
     designation: sessionStorage.getItem("designation") || "Director",
@@ -24,6 +25,7 @@ export default function DirectorDashboard() {
   };
 
   const handleSectionChange = (event) => {
+    setReportMode(false);
     setActiveSectionId(event.target.value);
   };
 
@@ -33,8 +35,10 @@ export default function DirectorDashboard() {
   };
 
   return (
-    <div style={styles.shell}>
-      <aside style={styles.sidebar}>
+    <>
+      <PrintStyles />
+      <div className="academic-audit-shell" style={styles.shell}>
+      <aside className="academic-audit-sidebar" style={styles.sidebar}>
         <div style={styles.brand}>
           <div style={styles.brandMark}>SA</div>
           <div>
@@ -61,6 +65,7 @@ export default function DirectorDashboard() {
                 {section.title}
               </option>
             ))}
+            <option value="summary">Summary</option>
           </select>
         </div>
 
@@ -89,12 +94,47 @@ export default function DirectorDashboard() {
         </div>
       </aside>
 
-      <main style={styles.page}>
-        <AuditForm schema={academicAudit2025Schema} activeSectionId={activeSectionId} />
+      <main className="academic-audit-main" style={styles.page}>
+        <AuditForm
+          schema={academicAudit2025Schema}
+          activeSectionId={activeSectionId}
+          reportMode={reportMode}
+          onReportModeChange={setReportMode}
+        />
       </main>
 
       {showLogoutModal && <LogoutModal onCancel={() => setShowLogoutModal(false)} onConfirm={handleLogout} />}
     </div>
+    </>
+  );
+}
+
+function PrintStyles() {
+  return (
+    <style>{`
+      @media (max-width: 900px) {
+        .academic-audit-shell { flex-direction: column; }
+        .academic-audit-sidebar { width: 100% !important; height: auto !important; position: relative !important; }
+        .academic-audit-main { padding: 18px !important; }
+      }
+      @media print {
+        .academic-audit-sidebar,
+        .academic-report-actions {
+          display: none !important;
+        }
+        .academic-audit-shell {
+          display: block !important;
+          background: #fff !important;
+        }
+        .academic-audit-main {
+          padding: 0 !important;
+          overflow: visible !important;
+        }
+        body {
+          background: #fff !important;
+        }
+      }
+    `}</style>
   );
 }
 

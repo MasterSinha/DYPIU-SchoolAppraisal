@@ -1,0 +1,201 @@
+import { columnsWithSerial } from "./tableHelpers";
+
+const blocksFor = (section) =>
+  section.blocks || [
+    ...(section.fields?.length ? [{ type: "fields", fields: section.fields }] : []),
+    ...(section.tables?.length ? [{ type: "tables", tables: section.tables }] : []),
+  ];
+
+export default function AuditReportPanel({ schema, values, tables }) {
+  return (
+    <div style={styles.panel}>
+      <header style={styles.header}>
+        <p style={styles.kicker}>{schema.header.university}</p>
+        <h1 style={styles.title}>{schema.title}</h1>
+        <p style={styles.meta}>{schema.header.address}</p>
+        <p style={styles.meta}>{schema.header.act}</p>
+        <p style={styles.year}>Academic Year {schema.academicYear}</p>
+      </header>
+
+      {schema.sections.map((section) => (
+        <section key={section.id} style={styles.section}>
+          <h2 style={styles.sectionTitle}>{section.title}</h2>
+          {blocksFor(section).map((block, blockIndex) => {
+            if (block.type === "fields") {
+              return (
+                <div key={`fields-${blockIndex}`} style={styles.fieldGrid}>
+                  {block.fields.map((field) => {
+                    if (field.kind === "heading") {
+                      return (
+                        <h3 key={field.id} style={styles.subheading}>
+                          {field.label}
+                        </h3>
+                      );
+                    }
+
+                    return (
+                      <div key={field.id} style={styles.fieldBlock}>
+                        <div style={styles.fieldLabel}>{field.label}</div>
+                        <div style={styles.fieldValue}>{values[field.id] || "-"}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            }
+
+            return block.tables.map((table) => {
+              const columns = columnsWithSerial(table.columns);
+
+              return (
+                <div key={table.id} style={styles.tableBlock}>
+                  {table.showTitle !== false && <h3 style={styles.tableTitle}>{table.title}</h3>}
+                  <div style={styles.tableScroller}>
+                    <table style={styles.table}>
+                      <thead>
+                        <tr>
+                          {columns.map((column) => (
+                            <th key={column} style={styles.th}>
+                              {column}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(tables[table.id] || []).map((row, rowIndex) => (
+                          <tr key={`${table.id}-${rowIndex}`}>
+                            {columns.map((column) => (
+                              <td key={column} style={styles.td}>
+                                {row[column]?.name || row[column] || "-"}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            });
+          })}
+        </section>
+      ))}
+    </div>
+  );
+}
+
+const styles = {
+  panel: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 16,
+  },
+  header: {
+    padding: 22,
+    border: "1px solid #dbe3ef",
+    borderRadius: 10,
+    background: "#fff",
+  },
+  kicker: {
+    margin: "0 0 7px",
+    color: "#1d4ed8",
+    fontSize: 12,
+    fontWeight: 900,
+    textTransform: "uppercase",
+  },
+  title: {
+    margin: "0 0 8px",
+    color: "#0f172a",
+    fontSize: 26,
+  },
+  meta: {
+    margin: "2px 0",
+    color: "#64748b",
+    fontSize: 13,
+  },
+  year: {
+    margin: "10px 0 0",
+    color: "#334155",
+    fontWeight: 900,
+    fontSize: 13,
+  },
+  section: {
+    padding: 18,
+    border: "1px solid #dbe3ef",
+    borderRadius: 10,
+    background: "#fff",
+  },
+  sectionTitle: {
+    margin: "0 0 14px",
+    padding: "12px 14px",
+    borderLeft: "4px solid #2563eb",
+    borderRadius: 6,
+    background: "#eff6ff",
+    color: "#0f172a",
+    fontSize: 19,
+  },
+  subheading: {
+    gridColumn: "1 / -1",
+    margin: "6px 0 0",
+    color: "#0f172a",
+    fontSize: 15,
+  },
+  fieldGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: 10,
+    marginBottom: 14,
+  },
+  fieldBlock: {
+    border: "1px solid #e2e8f0",
+    borderRadius: 8,
+    padding: 10,
+    background: "#f8fafc",
+  },
+  fieldLabel: {
+    color: "#64748b",
+    fontSize: 11,
+    fontWeight: 900,
+    marginBottom: 5,
+  },
+  fieldValue: {
+    color: "#0f172a",
+    fontSize: 13,
+    whiteSpace: "pre-wrap",
+  },
+  tableBlock: {
+    marginTop: 14,
+  },
+  tableTitle: {
+    margin: "0 0 8px",
+    padding: "10px 12px",
+    borderLeft: "4px solid #2563eb",
+    borderRadius: 6,
+    background: "#eff6ff",
+    color: "#0f172a",
+    fontSize: 15,
+  },
+  tableScroller: {
+    overflowX: "auto",
+  },
+  table: {
+    width: "100%",
+    minWidth: 720,
+    borderCollapse: "collapse",
+  },
+  th: {
+    padding: "8px 9px",
+    border: "1px solid #cbd5e1",
+    background: "#eef4fb",
+    color: "#334155",
+    fontSize: 11,
+    textAlign: "left",
+  },
+  td: {
+    padding: "8px 9px",
+    border: "1px solid #e2e8f0",
+    color: "#0f172a",
+    fontSize: 12,
+    verticalAlign: "top",
+  },
+};
