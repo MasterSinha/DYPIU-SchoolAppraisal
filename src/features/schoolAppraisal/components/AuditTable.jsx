@@ -1,4 +1,5 @@
 //academic & administrative table add rows and delete last row functionality , sr no, table heading(blue)
+import { useState } from "react";
 import { columnsWithSerial, serialColumnFor } from "./tableHelpers";
 
 const isAttachmentColumn = (column) => /\b(link|proof|attachment|document|mom)\b/i.test(column);
@@ -12,8 +13,11 @@ export default function AuditTable({
   onCellChange,
   onAddRow,
   onDeleteLastRow,
+  onUploadAttachment,
 }) {
   const columns = columnsWithSerial(table.columns);
+  const [uploadingCell, setUploadingCell] = useState("");
+  const [uploadError, setUploadError] = useState("");
 
   const handleCellChange = (rowIndex, column, value) => {
     if (onChange) {
@@ -22,6 +26,30 @@ export default function AuditTable({
     }
 
     onCellChange?.(table.id, rowIndex, column, value);
+  };
+
+  const handleAttachmentChange = async (rowIndex, column, file) => {
+    if (!file) return;
+
+    setUploadError("");
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError("Attachment must be 10MB or smaller.");
+      return;
+    }
+
+    const cellKey = `${rowIndex}-${column}`;
+    setUploadingCell(cellKey);
+
+    try {
+      const uploaded = onUploadAttachment
+        ? await onUploadAttachment(file)
+        : { name: file.name, fileName: file.name, url: URL.createObjectURL(file) };
+      handleCellChange(rowIndex, column, uploaded);
+    } catch (error) {
+      setUploadError(error?.response?.data?.message || error?.message || "Attachment upload failed.");
+    } finally {
+      setUploadingCell("");
+    }
   };
 
   return (
@@ -41,6 +69,8 @@ export default function AuditTable({
           ))}
         </div>
       )}
+
+      {uploadError && <div style={styles.uploadError}>{uploadError}</div>}
 
       {!!table.fields?.length && (
         <div style={styles.embeddedFields}>
@@ -78,19 +108,18 @@ export default function AuditTable({
                     {isAttachmentColumn(column) ? (
                       <div style={styles.attachmentCell}>
                         <label className="btn btn-outline" style={{ display: 'inline-flex', alignItems: 'center' }}>
-                          Add Attachment
+                          {uploadingCell === `${rowIndex}-${column}` ? "Uploading..." : "Add Attachment"}
                           <input
                             type="file"
+                            accept=".pdf,application/pdf"
                             onChange={(event) => {
                               const file = event.target.files?.[0];
-                              if (!file) return;
-                              handleCellChange(rowIndex, column, {
-                                name: file.name,
-                                url: URL.createObjectURL(file),
-                              });
+                              handleAttachmentChange(rowIndex, column, file);
+                              event.target.value = "";
                             }}
                             style={styles.fileInput}
                             aria-label={`${table.title} ${column}`}
+                            disabled={uploadingCell === `${rowIndex}-${column}`}
                           />
                         </label>
                         {row[column]?.url && (
@@ -314,6 +343,16 @@ const styles = {
     color: "#64748b",
     fontSize: 14,
     wordBreak: "break-word",
+  },
+  uploadError: {
+    margin: "10px 14px 0",
+    border: "1px solid #fecaca",
+    borderRadius: 8,
+    background: "#fef2f2",
+    color: "#991b1b",
+    padding: "9px 10px",
+    fontSize: 13,
+    fontWeight: 700,
   },
   emptyCell: {
     padding: 18,

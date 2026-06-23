@@ -1,20 +1,39 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getApiErrorMessage } from "../../../api/client";
+import { fetchAllSubmissions, fetchSubmissionById, fetchSubmissionSnapshots, parseSubmissionFormData, reviewSubmission } from "../../../api/submissions";
 import universityLogo from "../../../assets/images/image.png";
 import AppSidebar from "../components/AppSidebar";
 import { columnsWithSerial } from "../components/tableHelpers";
 import { administrativeAuditModules } from "../administrativeAudit/administrativeAuditConfig";
 import { academicAudit2025Schema } from "../formSchemas";
-import {
-  REVIEW_NAV_ITEMS,
-  REVIEW_ROLE_CONFIG,
-  SCHOOL_GROUPS,
-  initialReviewSubmissions,
-} from "./reviewDashboardData";
 
-const STORAGE_KEY = "dypiu-school-appraisal:review-dashboard";
-const ACADEMIC_DRAFT_KEY = `dypiu-school-appraisal:${academicAudit2025Schema.id}:draft`;
-const ADMINISTRATIVE_DRAFT_KEY = "dypiu-school-appraisal:administrative-audit-2025-26";
+const REVIEW_NAV_ITEMS = [
+  { id: "overview", title: "Overview" },
+  { id: "academic", title: "Academic Audit" },
+  { id: "administrative", title: "Administrative Audit" },
+];
+
+const REVIEW_ROLE_CONFIG = {
+  "vice-chancellor": {
+    badge: "VC",
+    title: "Vice Chancellor Dashboard",
+    roleTitle: "Vice Chancellor",
+    roleText: "School Appraisal Review",
+  },
+  iqac: {
+    badge: "IQ",
+    title: "IQAC Dashboard",
+    roleTitle: "IQAC",
+    roleText: "School Appraisal Review",
+  },
+};
+
+const SCHOOL_GROUPS = {
+  engineering: "Engineering",
+  nonEngineering: "Non-Engineering",
+  all: "All Schools",
+};
 
 const statusLabels = {
   submitted: "Submitted",
@@ -41,21 +60,6 @@ const groupTabs = [
   { id: "nonEngineering", label: "Non-Engineering" },
 ];
 
-const loadSubmissions = () => {
-  const saved = window.localStorage.getItem(STORAGE_KEY);
-  if (!saved) return initialReviewSubmissions;
-
-  try {
-    return { ...initialReviewSubmissions, ...JSON.parse(saved) };
-  } catch {
-    return initialReviewSubmissions;
-  }
-};
-
-const saveSubmissions = (submissions) => {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(submissions));
-};
-
 const initialsFor = (name = "") => name.split(" ").filter(Boolean).map((word) => word[0]).join("").slice(0, 2).toUpperCase();
 const isAttachmentValue = (value) => value && typeof value === "object" && (value.url || value.name);
 
@@ -65,31 +69,52 @@ const blocksFor = (section) =>
     ...(section.tables?.length ? [{ type: "tables", tables: section.tables }] : []),
   ];
 
-const loadSubmittedForm = (auditType) => {
-  const storageKey = auditType === "academic" ? ACADEMIC_DRAFT_KEY : ADMINISTRATIVE_DRAFT_KEY;
-  const saved = window.localStorage.getItem(storageKey);
-  const fallback = { values: {}, tables: {}, hasSavedData: false };
-
-  if (!saved) return fallback;
-
-  try {
-    const parsed = JSON.parse(saved);
-    return auditType === "academic"
-      ? { values: parsed.values || {}, tables: parsed.tables || {}, hasSavedData: true }
-      : { values: parsed.fields || {}, tables: parsed.tables || {}, hasSavedData: true };
-  } catch {
-    return fallback;
-  }
-};
-
 const sectionsForAudit = (auditType) => auditType === "academic" ? academicAudit2025Schema.sections : administrativeAuditModules;
+
+const normalizeAuditType = (value = "") => String(value).toLowerCase().includes("admin") ? "administrative" : "academic";
+const normalizeStatus = (value = "submitted") => String(value).toLowerCase().replaceAll("_", "-");
+const backendStatusFor = (status) => status.toUpperCase().replaceAll("-", "_");
+const responseList = (payload) => {
+  const data = payload?.data ?? payload;
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.content)) return data.content;
+  if (Array.isArray(data?.submissions)) return data.submissions;
+  if (Array.isArray(data?.items)) return data.items;
+  return [];
+};
+const submissionPayload = (payload) => payload?.data?.submission || payload?.data || payload;
+
+const normalizeSubmission = (submission = {}) => {
+  const auditType = normalizeAuditType(submission.auditType || submission.type);
+  const formData = parseSubmissionFormData(submission);
+
+  return {
+    ...submission,
+    ...formData,
+    id: submission.id || submission.submissionId,
+    auditType,
+    group: submission.group || submission.schoolGroup || "all",
+    school: submission.school || submission.schoolName || submission.department || "School",
+    submittedBy: submission.submittedBy || submission.createdBy || submission.userName || submission.user?.name || "-",
+    submittedOn: submission.submittedOn || submission.submittedAt || submission.createdAt || new Date().toISOString(),
+    sections: submission.sections || sectionsForAudit(auditType),
+    attachments: formData.attachments.length ? formData.attachments : submission.attachments || [],
+    status: normalizeStatus(submission.status),
+    remarks: submission.remarks || "",
+    snapshots: submission.snapshots || [],
+  };
+};
 
 export default function ReviewDashboard() {
   const navigate = useNavigate();
   const [activeView, setActiveView] = useState("overview");
   const [activeGroup, setActiveGroup] = useState({ academic: "all", administrative: "all" });
-  const [submissions, setSubmissions] = useState(loadSubmissions);
+  const [submissions, setSubmissions] = useState({ academic: [], administrative: [] });
   const [selectedSubmission, setSelectedSubmission] = useState(null);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(true);
+  const [loadingSubmissionId, setLoadingSubmissionId] = useState("");
+  const [reviewingStatus, setReviewingStatus] = useState("");
+  const [error, setError] = useState("");
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const role = sessionStorage.getItem("role") || "iqac";
   const roleConfig = REVIEW_ROLE_CONFIG[role] || REVIEW_ROLE_CONFIG.iqac;
@@ -103,6 +128,35 @@ export default function ReviewDashboard() {
   const allSubmissions = useMemo(() => [...submissions.academic, ...submissions.administrative], [submissions]);
   const metrics = useMemo(() => buildMetrics(allSubmissions), [allSubmissions]);
 
+  useEffect(() => {
+    let isActive = true;
+
+    const loadSubmissions = async () => {
+      setLoadingSubmissions(true);
+      setError("");
+
+      try {
+        const { data } = await fetchAllSubmissions();
+        const next = { academic: [], administrative: [] };
+        responseList(data).map(normalizeSubmission).forEach((submission) => {
+          next[submission.auditType].push(submission);
+        });
+
+        if (isActive) setSubmissions(next);
+      } catch (loadError) {
+        if (isActive) setError(getApiErrorMessage(loadError, "Could not load submissions for review."));
+      } finally {
+        if (isActive) setLoadingSubmissions(false);
+      }
+    };
+
+    loadSubmissions();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
   const updateSubmission = (auditType, submissionId, patch) => {
     setSubmissions((current) => {
       const next = {
@@ -111,7 +165,6 @@ export default function ReviewDashboard() {
           submission.id === submissionId ? { ...submission, ...patch } : submission
         ),
       };
-      saveSubmissions(next);
       return next;
     });
 
@@ -120,16 +173,52 @@ export default function ReviewDashboard() {
     );
   };
 
-  const confirmStatusChange = (submission, status) => {
+  const openSubmission = async (submission) => {
+    setLoadingSubmissionId(submission.id);
+    setError("");
+
+    try {
+      const [{ data: detailData }, { data: snapshotsData }] = await Promise.all([
+        fetchSubmissionById(submission.id),
+        fetchSubmissionSnapshots(submission.id),
+      ]);
+      const detailedSubmission = normalizeSubmission({
+        ...submission,
+        ...submissionPayload(detailData),
+        snapshots: responseList(snapshotsData),
+      });
+      setSelectedSubmission(detailedSubmission);
+    } catch (openError) {
+      setError(getApiErrorMessage(openError, "Could not load submission details."));
+    } finally {
+      setLoadingSubmissionId("");
+    }
+  };
+
+  const confirmStatusChange = async (submission, status) => {
     const action = status === "approved" ? "approve" : "send back";
     const ok = window.confirm(`Do you want to ${action} ${submission.school} ${auditLabels[submission.auditType]}?`);
     if (!ok) return;
 
-    updateSubmission(submission.auditType, submission.id, {
-      status,
-      reviewedBy: profile.name,
-      reviewedOn: new Date().toISOString(),
-    });
+    setReviewingStatus(status);
+    setError("");
+
+    try {
+      await reviewSubmission(submission.id, {
+        status: backendStatusFor(status),
+        remarks: submission.remarks,
+      });
+
+      updateSubmission(submission.auditType, submission.id, {
+        status,
+        reviewedBy: profile.name,
+        reviewedOn: new Date().toISOString(),
+      });
+    } catch (reviewError) {
+      setError(getApiErrorMessage(reviewError, "Could not update review status."));
+    } finally {
+      setReviewingStatus("");
+    }
   };
 
   const handleLogout = () => {
@@ -181,17 +270,22 @@ export default function ReviewDashboard() {
               onRemarksChange={(remarks) => updateSubmission(selectedSubmission.auditType, selectedSubmission.id, { remarks })}
               onApprove={() => confirmStatusChange(selectedSubmission, "approved")}
               onSendBack={() => confirmStatusChange(selectedSubmission, "sent-back")}
+              reviewingStatus={reviewingStatus}
             />
           ) : activeView === "overview" ? (
             <OverviewPanel
               metrics={metrics}
               submissions={allSubmissions}
+              loading={loadingSubmissions}
               onOpen={(submission) => {
                 setActiveView(submission.auditType);
-                setSelectedSubmission(submission);
+                openSubmission(submission);
               }}
             />
           ) : null}
+
+          {error && <div style={styles.errorNotice}>{error}</div>}
+          {loadingSubmissionId && <div style={styles.emptyDraftNotice}>Loading submission details...</div>}
 
           {!selectedSubmission && activeView === "academic" && (
             <AuditReviewPanel
@@ -199,7 +293,8 @@ export default function ReviewDashboard() {
               submissions={submissions.academic}
               activeGroup={activeGroup.academic}
               onGroupChange={(group) => setActiveGroup((current) => ({ ...current, academic: group }))}
-              onOpen={setSelectedSubmission}
+              onOpen={openSubmission}
+              loading={loadingSubmissions}
             />
           )}
 
@@ -209,7 +304,8 @@ export default function ReviewDashboard() {
               submissions={submissions.administrative}
               activeGroup={activeGroup.administrative}
               onGroupChange={(group) => setActiveGroup((current) => ({ ...current, administrative: group }))}
-              onOpen={setSelectedSubmission}
+              onOpen={openSubmission}
+              loading={loadingSubmissions}
             />
           )}
         </main>
@@ -224,15 +320,15 @@ function buildMetrics(submissions) {
   return submissions.reduce(
     (metrics, submission) => {
       metrics.total += 1;
-      metrics[submission.status] += 1;
-      metrics[submission.auditType] += 1;
+      if (metrics[submission.status] != null) metrics[submission.status] += 1;
+      if (metrics[submission.auditType] != null) metrics[submission.auditType] += 1;
       return metrics;
     },
     { total: 0, submitted: 0, "under-review": 0, approved: 0, "sent-back": 0, academic: 0, administrative: 0 }
   );
 }
 
-function OverviewPanel({ metrics, submissions, onOpen }) {
+function OverviewPanel({ metrics, submissions, loading, onOpen }) {
   const pendingSubmissions = submissions.filter((submission) => submission.status !== "approved");
 
   return (
@@ -247,6 +343,8 @@ function OverviewPanel({ metrics, submissions, onOpen }) {
         <MetricCard label="Approved" value={metrics.approved} />
         <MetricCard label="Sent back" value={metrics["sent-back"]} />
       </div>
+
+      {loading && <div style={styles.emptyDraftNotice}>Loading submissions...</div>}
 
       <div style={styles.splitGrid}>
         <div style={styles.card}>
@@ -278,7 +376,7 @@ function OverviewPanel({ metrics, submissions, onOpen }) {
   );
 }
 
-function AuditReviewPanel({ auditType, submissions, activeGroup, onGroupChange, onOpen }) {
+function AuditReviewPanel({ auditType, submissions, activeGroup, onGroupChange, onOpen, loading }) {
   const filtered = activeGroup === "all" ? submissions : submissions.filter((submission) => submission.group === activeGroup);
   const counts = {
     all: submissions.length,
@@ -310,6 +408,8 @@ function AuditReviewPanel({ auditType, submissions, activeGroup, onGroupChange, 
       </div>
 
       <div style={styles.reviewList}>
+        {loading && <div style={styles.emptyDraftNotice}>Loading submissions...</div>}
+        {!loading && !filtered.length && <div style={styles.emptyDraftNotice}>No {auditLabels[auditType]} submissions found.</div>}
         {filtered.map((submission) => (
           <SubmissionCard
             key={submission.id}
@@ -349,8 +449,12 @@ function SubmissionCard({ submission, onOpen }) {
   );
 }
 
-function FullFormReview({ submission, onBack, onRemarksChange, onApprove, onSendBack }) {
-  const submittedForm = loadSubmittedForm(submission.auditType);
+function FullFormReview({ submission, onBack, onRemarksChange, onApprove, onSendBack, reviewingStatus }) {
+  const submittedForm = {
+    values: submission.values || {},
+    tables: submission.tables || {},
+    hasSavedData: submission.hasSavedData,
+  };
   const sections = sectionsForAudit(submission.auditType);
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
   const isLastSection = activeSectionIndex === sections.length - 1;
@@ -411,10 +515,25 @@ function FullFormReview({ submission, onBack, onRemarksChange, onApprove, onSend
                 Approve and Send Back are enabled after remarks are written.
               </span>
               <div style={styles.cardActions}>
-                <button type="button" className="btn btn-primary" onClick={onApprove} disabled={!hasRemarks}>Approve</button>
-                <button type="button" className="btn btn-danger" onClick={onSendBack} disabled={!hasRemarks}>Send Back</button>
+                <button type="button" className="btn btn-primary" onClick={onApprove} disabled={!hasRemarks || Boolean(reviewingStatus)}>
+                  {reviewingStatus === "approved" ? "Approving..." : "Approve"}
+                </button>
+                <button type="button" className="btn btn-danger" onClick={onSendBack} disabled={!hasRemarks || Boolean(reviewingStatus)}>
+                  {reviewingStatus === "sent-back" ? "Sending..." : "Send Back"}
+                </button>
               </div>
             </div>
+            {!!submission.snapshots?.length && (
+              <div style={styles.snapshotPanel}>
+                <h3 style={styles.cardTitle}>Version History</h3>
+                {submission.snapshots.map((snapshot, index) => (
+                  <div key={snapshot.id || index} style={styles.summaryRow}>
+                    <span>{snapshot.status || snapshot.action || `Snapshot ${index + 1}`}</span>
+                    <strong>{formatDate(snapshot.createdAt || snapshot.createdOn || snapshot.timestamp || new Date())}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1147,6 +1266,22 @@ const styles = {
     fontSize: 14,
     fontWeight: 800,
     lineHeight: 1.5,
+  },
+  errorNotice: {
+    border: "1px solid #fecaca",
+    borderRadius: 10,
+    background: "#fef2f2",
+    color: "#991b1b",
+    padding: "12px 14px",
+    fontSize: 14,
+    fontWeight: 800,
+    lineHeight: 1.5,
+  },
+  snapshotPanel: {
+    border: "1px solid #e2e8f0",
+    borderRadius: 10,
+    background: "#f8fafc",
+    padding: 14,
   },
   reviewSection: {
     border: "1px solid #dbe3ef",
