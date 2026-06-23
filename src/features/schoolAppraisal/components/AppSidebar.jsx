@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+
 const Icon = ({ children, size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     {children}
@@ -10,7 +12,7 @@ const MailIcon = () => <Icon><rect x="3" y="5" width="18" height="14" rx="2"/><p
 const LogoutIcon = () => <Icon><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M15 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/></Icon>;
 const ChevronIcon = () => <Icon size={16}><path d="m7 10 5 5 5-5"/></Icon>;
 
-const initialsFor = (name) => name.split(" ").filter(Boolean).map((word) => word[0]).join("").slice(0, 2).toUpperCase();
+const initialsFor = (name = "") => name.split(" ").filter(Boolean).map((word) => word[0]).join("").slice(0, 2).toUpperCase();
 
 export default function AppSidebar({
   title,
@@ -18,7 +20,7 @@ export default function AppSidebar({
   badge = "SA",
   roleTitle,
   roleText,
-  academicYear = "2025–26",
+  academicYear = "2025-26",
   items,
   activeId,
   onChange,
@@ -94,7 +96,7 @@ export default function AppSidebar({
             aria-expanded={isOpen}
           >
             <span className="app-sidebar__select-icon">
-              {activeItem?.id === "summary" ? <SummaryIcon /> : <ClipboardIcon />}
+              {activeItem?.id === "overview" || activeItem?.id === "summary" ? <SummaryIcon /> : <ClipboardIcon />}
             </span>
             <span className="app-sidebar__select-copy">
               <small>{activeItem?.number ? `Section ${activeItem.number}` : "Overview"}</small>
@@ -116,12 +118,12 @@ export default function AppSidebar({
                     className={`app-sidebar__menu-item${selected ? " is-selected" : ""}`}
                     onClick={() => selectSection(item.id)}
                   >
-                    <span className="app-sidebar__menu-number">{item.id === "summary" ? <SummaryIcon /> : <ClipboardIcon />}</span>
+                    <span className="app-sidebar__menu-number">{item.id === "overview" || item.id === "summary" ? <SummaryIcon /> : <ClipboardIcon />}</span>
                     <span className="app-sidebar__menu-copy">
                       {item.number && <small>Section {item.number}</small>}
                       <span>{item.title}</span>
                     </span>
-                    {selected && <span className="app-sidebar__menu-check">✓</span>}
+                    {selected && <span className="app-sidebar__menu-check">{"\u2713"}</span>}
                   </button>
                 );
               })}
@@ -137,10 +139,10 @@ export default function AppSidebar({
       </a>
 
       <div className="app-sidebar__profile">
-        <div className="app-sidebar__avatar">{initialsFor(profile.name) || "SA"}</div>
+        <div className="app-sidebar__avatar">{initialsFor(profile.name) || badge}</div>
         <div className="app-sidebar__profile-copy">
           <strong>{profile.name}</strong>
-          <span>{profile.designation} · {profile.school}</span>
+          <span>{profile.designation} - {profile.school}</span>
         </div>
         <button type="button" className="app-sidebar__logout" onClick={onLogout} aria-label="Log out" title="Log out">
           <LogoutIcon />
@@ -149,4 +151,3 @@ export default function AppSidebar({
     </aside>
   );
 }
-import { useEffect, useRef, useState } from "react";

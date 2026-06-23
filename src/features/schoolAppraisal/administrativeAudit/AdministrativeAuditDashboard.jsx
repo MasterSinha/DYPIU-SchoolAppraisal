@@ -371,6 +371,14 @@ function FieldGrid({ fields, data, onChange }) {
   return (
     <div className="audit-field-grid" style={styles.fieldGrid}>
       {fields.map((field) => {
+        const isWideField = field.type === "textarea" || [
+          "universityName",
+          "viceChancellor",
+          "registrar",
+          "placementActivitiesHeading",
+          "internshipActivitiesHeading",
+        ].includes(field.id);
+
         if (field.kind === "heading") {
           return (
             <h3 key={field.id} style={styles.subsectionHeading}>
@@ -380,7 +388,7 @@ function FieldGrid({ fields, data, onChange }) {
         }
 
         return (
-          <label className="audit-field" key={field.id} style={field.type === "textarea" ? styles.wideField : styles.field}>
+          <label className="audit-field" key={field.id} style={isWideField ? styles.wideField : styles.field}>
             <span style={styles.fieldLabel}>{field.label}</span>
             {field.type === "textarea" ? (
               <textarea
@@ -396,7 +404,7 @@ function FieldGrid({ fields, data, onChange }) {
                 onChange={(event) => onChange(field.id, event.target.value)}
                 className="audit-control"
                 style={styles.input}
-                type={field.type || "text"}
+                type="text"
               />
             )}
           </label>
@@ -764,8 +772,8 @@ const styles = {
   },
   fieldGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-    gap: "18px 16px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(480px, 1fr))",
+    gap: "20px 18px",
     marginBottom: 16,
   },
   sectionText: {
@@ -799,20 +807,21 @@ const styles = {
   },
   input: {
     width: "100%",
+    minHeight: 58,
     border: "1px solid #d7dee9",
     borderRadius: 10,
-    padding: "11px 12px",
+    padding: "15px 16px",
     color: "#0f172a",
     background: "#fbfcfe",
     outline: "none",
   },
   textarea: {
     width: "100%",
-    minHeight: 92,
+    minHeight: 146,
     resize: "vertical",
     border: "1px solid #d7dee9",
     borderRadius: 10,
-    padding: "11px 12px",
+    padding: "15px 16px",
     color: "#0f172a",
     background: "#fbfcfe",
     outline: "none",

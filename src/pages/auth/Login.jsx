@@ -24,6 +24,22 @@ const LOGIN_ACCOUNTS = {
     role: "administrative",
     dashboard: "/administrative/dashboard",
   },
+  "vc@dypiu.ac.in": {
+    password: "VC@123",
+    name: "Vice Chancellor",
+    designation: "Vice Chancellor",
+    school: "D Y Patil International University",
+    role: "vice-chancellor",
+    dashboard: "/vice-chancellor/dashboard",
+  },
+  "iqac@dypiu.ac.in": {
+    password: "IQAC@123",
+    name: "IQAC Coordinator",
+    designation: "IQAC Coordinator",
+    school: "D Y Patil International University",
+    role: "iqac",
+    dashboard: "/iqac/dashboard",
+  },
 };
 
 export default function Login() {
