@@ -33,7 +33,7 @@ The temporary frontend-only login accounts are defined in `src/pages/auth/Login.
 | Director | `director@dypiu.ac.in` | `Director@123` | `/director/dashboard` |
 | Administrative | `administrative@dypiu.ac.in` | `Admin@123` | `/administrative/dashboard` |
 | Vice Chancellor | `vc@dypiu.ac.in` | `VC@123` | `/vice-chancellor/dashboard` |
-| IQAC | `iqac@dypiu.ac.in` | `IQAC@123` | `/iqac/dashboard` |
+| IQAC Director | `iqac@dypiu.ac.in` | `IQAC@123` | `/iqac/dashboard` |
 
 When backend auth is ready, replace `LOGIN_ACCOUNTS` and the fake timeout login logic in `src/pages/auth/Login.jsx` with API login.
 
@@ -201,8 +201,8 @@ Administrative current sections:
 | A. University Information | Registrar |
 | B. Faculty and Staff Details | HR |
 | C. Infrastructure Details | Registrar |
-| D. Student Activities | Dean Student Welfare / Director Student Affairs |
-| E. Student Activities, Placement, Internship and Training | Dean Industry and Corporate Relations / T & P |
+| D. Student Activities | Dean Student Welfare |
+| E. Student Activities, Placement, Internship and Training | Dean Placements |
 | F. Observations & Recommendations of the Audit | VC / IQAC / Audit Team |
 
 ## 8. VC And IQAC Review Dashboard
@@ -225,10 +225,40 @@ Main files:
 
 The same dashboard is used for Vice Chancellor and IQAC. The label changes based on `sessionStorage.role`.
 
+Academic Audit submitters:
+
+| School | Short Name |
+| --- | --- |
+| School of Computer Science & Applications | SoCSEA |
+| School of Bio-Engineering & Bio Science | SoBB |
+| School of Continual Education | SoCE |
+| School of Engineering, Management & Research | SoEMR |
+| School of Commerce & Management | SoCM |
+| School of Media & Communication Studies | SoMCS |
+| School of Design | SoD |
+| School of Applied Arts | SoAA |
+
+Administrative Audit submitters:
+
+| Post |
+| --- |
+| Registrar |
+| HR |
+| Dean Student Welfare |
+| Dean Placements |
+
+Review dashboard users:
+
+| Role |
+| --- |
+| Vice Chancellor |
+| IQAC Director |
+
 Current review dashboard behavior:
 
 - sidebar has Overview, Academic Audit, Administrative Audit
-- Academic and Administrative lists are grouped by All, Engineering, and Non-Engineering
+- Academic Audit shows 8 school director submissions grouped by All, Engineering, and Non-Engineering
+- Administrative Audit shows 4 administrative role submissions: Registrar, HR, Dean Student Welfare, and Dean Placements
 - View Form opens a full form view with Back button
 - section navigation shows Part A, Part B, etc.
 - VC/IQAC can view, approve, and generate report

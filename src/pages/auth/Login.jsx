@@ -10,9 +10,9 @@ const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 const LOGIN_ACCOUNTS = {
   "director@dypiu.ac.in": {
     password: "Director@123",
-    name: "Director of Schools",
+    name: "Director",
     designation: "Director",
-    school: "Director of Schools",
+    school: "School of Computer Science & Applications",
     role: "director",
     dashboard: "/director/dashboard",
   },
@@ -34,8 +34,8 @@ const LOGIN_ACCOUNTS = {
   },
   "iqac@dypiu.ac.in": {
     password: "IQAC@123",
-    name: "IQAC Coordinator",
-    designation: "IQAC Coordinator",
+    name: "IQAC Director",
+    designation: "IQAC Director",
     school: "D Y Patil International University",
     role: "iqac",
     dashboard: "/iqac/dashboard",

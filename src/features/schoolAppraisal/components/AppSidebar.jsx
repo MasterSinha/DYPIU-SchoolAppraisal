@@ -13,6 +13,34 @@ const LogoutIcon = () => <Icon><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><pa
 const ChevronIcon = () => <Icon size={16}><path d="m7 10 5 5 5-5"/></Icon>;
 
 const initialsFor = (name = "") => name.split(" ").filter(Boolean).map((word) => word[0]).join("").slice(0, 2).toUpperCase();
+const genericProfileNames = new Set(["director of schools", "administrative user", "iqac director", "vice chancellor"]);
+const toTitleCase = (value = "") =>
+  value
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+
+const nameFromEmail = (email = "") => {
+  const localPart = email.split("@")[0] || "";
+  const words = localPart
+    .replace(/[._-]+/g, " ")
+    .replace(/\d+/g, " ")
+    .trim();
+
+  return words ? toTitleCase(words) : "";
+};
+
+const displayNameFor = (profile = {}) => {
+  const storedName = (profile.name || "").trim();
+  const emailName = nameFromEmail(profile.email || profile.username || "");
+
+  if (emailName && (!storedName || genericProfileNames.has(storedName.toLowerCase()))) {
+    return emailName;
+  }
+
+  return storedName || emailName || "User";
+};
 
 export default function AppSidebar({
   title,
@@ -30,6 +58,7 @@ export default function AppSidebar({
   const activeItem = items.find((item) => item.id === activeId) || items[0];
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const displayName = displayNameFor(profile);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -139,9 +168,9 @@ export default function AppSidebar({
       </a>
 
       <div className="app-sidebar__profile">
-        <div className="app-sidebar__avatar">{initialsFor(profile.name) || badge}</div>
+        <div className="app-sidebar__avatar">{initialsFor(displayName) || badge}</div>
         <div className="app-sidebar__profile-copy">
-          <strong>{profile.name}</strong>
+          <strong>{displayName}</strong>
           <span>{profile.designation} - {profile.school}</span>
         </div>
         <button type="button" className="app-sidebar__logout" onClick={onLogout} aria-label="Log out" title="Log out">

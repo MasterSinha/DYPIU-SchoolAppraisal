@@ -42,27 +42,37 @@ const groupTabs = [
 const allowedReviewStatuses = new Set(["submitted", "under-review", "approved"]);
 const normalizeReviewStatus = (status) => allowedReviewStatuses.has(status) ? status : "submitted";
 
-const sanitizeSubmissions = (submissions) => ({
-  academic: (submissions.academic || []).map((submission) => ({
-    ...submission,
-    status: normalizeReviewStatus(submission.status),
-  })),
-  administrative: (submissions.administrative || []).map((submission) => ({
-    ...submission,
-    status: normalizeReviewStatus(submission.status),
-  })),
-});
+const mergeSavedSubmissions = (baseSubmissions, savedSubmissions = {}) => {
+  const mergeAuditType = (auditType) => {
+    const savedById = new Map((savedSubmissions[auditType] || []).map((submission) => [submission.id, submission]));
+
+    return baseSubmissions[auditType].map((baseSubmission) => {
+      const savedSubmission = savedById.get(baseSubmission.id);
+      return {
+        ...baseSubmission,
+        status: normalizeReviewStatus(savedSubmission?.status || baseSubmission.status),
+        reviewedBy: savedSubmission?.reviewedBy,
+        reviewedOn: savedSubmission?.reviewedOn,
+      };
+    });
+  };
+
+  return {
+    academic: mergeAuditType("academic"),
+    administrative: mergeAuditType("administrative"),
+  };
+};
 
 const loadSubmissions = () => {
   const saved = window.localStorage.getItem(STORAGE_KEY);
-  if (!saved) return sanitizeSubmissions(initialReviewSubmissions);
+  if (!saved) return mergeSavedSubmissions(initialReviewSubmissions);
 
   try {
-    const sanitized = sanitizeSubmissions({ ...initialReviewSubmissions, ...JSON.parse(saved) });
+    const sanitized = mergeSavedSubmissions(initialReviewSubmissions, JSON.parse(saved));
     saveSubmissions(sanitized);
     return sanitized;
   } catch {
-    return sanitizeSubmissions(initialReviewSubmissions);
+    return mergeSavedSubmissions(initialReviewSubmissions);
   }
 };
 
@@ -72,6 +82,14 @@ const saveSubmissions = (submissions) => {
 
 const initialsFor = (name = "") => name.split(" ").filter(Boolean).map((word) => word[0]).join("").slice(0, 2).toUpperCase();
 const isAttachmentValue = (value) => value && typeof value === "object" && (value.url || value.name);
+const titleForSubmission = (submission = {}) =>
+  submission.title || submission.school || submission.schoolName || submission.roleName || "Audit Submission";
+const submittedByFor = (submission = {}) =>
+  submission.submittedBy || submission.submitterName || submission.submittedByName || submission.designation || "Submitted user";
+const groupLabelFor = (submission = {}) =>
+  submission.groupLabel || SCHOOL_GROUPS[submission.group] || (submission.auditType === "administrative" ? "Administrative Role" : "School");
+const sectionsForSubmission = (submission = {}) => Array.isArray(submission.sections) ? submission.sections : [];
+const attachmentsForSubmission = (submission = {}) => Array.isArray(submission.attachments) ? submission.attachments : [];
 
 const blocksFor = (section) =>
   section.blocks || [
@@ -151,7 +169,7 @@ export default function ReviewDashboard() {
   const confirmApprove = (submission) => {
     if (submission.status === "approved") return;
 
-    const ok = window.confirm(`Do you want to approve ${submission.school} ${auditLabels[submission.auditType]}?`);
+    const ok = window.confirm(`Do you want to approve ${titleForSubmission(submission)} ${auditLabels[submission.auditType]}?`);
     if (!ok) return;
 
     updateSubmission(submission.auditType, submission.id, {
@@ -292,6 +310,7 @@ function OverviewPanel({ metrics, submissions, onOpen }) {
             <SummaryRow label="Administrative Audit" value={metrics.administrative} />
             <SummaryRow label="Engineering Schools" value="4" />
             <SummaryRow label="Non-Engineering Schools" value="4" />
+            <SummaryRow label="Administrative Submitters" value={metrics.administrative} />
           </div>
         </div>
 
@@ -301,7 +320,7 @@ function OverviewPanel({ metrics, submissions, onOpen }) {
             {pendingSubmissions.slice(0, 6).map((submission) => (
               <button key={submission.id} type="button" style={styles.queueItem} onClick={() => onOpen(submission)}>
                 <span>
-                  <strong>{submission.school}</strong>
+                  <strong>{titleForSubmission(submission)}</strong>
                   <small>{auditLabels[submission.auditType]}</small>
                 </span>
                 <StatusBadge status={submission.status} />
@@ -315,12 +334,17 @@ function OverviewPanel({ metrics, submissions, onOpen }) {
 }
 
 function AuditReviewPanel({ auditType, submissions, activeGroup, onGroupChange, onOpen }) {
-  const filtered = activeGroup === "all" ? submissions : submissions.filter((submission) => submission.group === activeGroup);
-  const counts = {
-    all: submissions.length,
-    engineering: submissions.filter((submission) => submission.group === "engineering").length,
-    nonEngineering: submissions.filter((submission) => submission.group === "nonEngineering").length,
-  };
+  const isAcademic = auditType === "academic";
+  const filtered = isAcademic && activeGroup !== "all"
+    ? submissions.filter((submission) => submission.group === activeGroup)
+    : submissions;
+  const counts = isAcademic
+    ? {
+        all: submissions.length,
+        engineering: submissions.filter((submission) => submission.group === "engineering").length,
+        nonEngineering: submissions.filter((submission) => submission.group === "nonEngineering").length,
+      }
+    : {};
 
   return (
     <section style={styles.panel}>
@@ -328,22 +352,10 @@ function AuditReviewPanel({ auditType, submissions, activeGroup, onGroupChange, 
         <div style={styles.blueHeading}>
           <h2 style={styles.sectionTitle}>{auditLabels[auditType]} Reviews</h2>
         </div>
-        <span style={styles.schoolCount}>{filtered.length} schools</span>
+        <span style={styles.schoolCount}>{filtered.length} {isAcademic ? "schools" : "submissions"}</span>
       </div>
 
-      <div style={styles.tabs} role="tablist" aria-label={`${auditLabels[auditType]} school groups`}>
-        {groupTabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            style={{ ...styles.tab, ...(activeGroup === tab.id ? styles.activeTab : {}) }}
-            onClick={() => onGroupChange(tab.id)}
-          >
-            {tab.label}
-            <span style={styles.tabCount}>{counts[tab.id]}</span>
-          </button>
-        ))}
-      </div>
+      {isAcademic ? <SchoolGroupTabs activeGroup={activeGroup} counts={counts} onGroupChange={onGroupChange} /> : null}
 
       <div style={styles.reviewList}>
         {filtered.map((submission) => (
@@ -358,15 +370,39 @@ function AuditReviewPanel({ auditType, submissions, activeGroup, onGroupChange, 
   );
 }
 
+function SchoolGroupTabs({ activeGroup, counts, onGroupChange }) {
+  return (
+    <div style={styles.tabs} role="tablist" aria-label="Academic Audit school groups">
+      {groupTabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          style={{ ...styles.tab, ...(activeGroup === tab.id ? styles.activeTab : {}) }}
+          onClick={() => onGroupChange(tab.id)}
+        >
+          {tab.label}
+          <span style={styles.tabCount}>{counts[tab.id]}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function SubmissionCard({ submission, onOpen }) {
+  const title = titleForSubmission(submission);
+  const submittedBy = submittedByFor(submission);
+  const groupLabel = groupLabelFor(submission);
+  const sections = sectionsForSubmission(submission);
+  const attachments = attachmentsForSubmission(submission);
+
   return (
     <article style={styles.submissionCard}>
       <div style={styles.submissionTop}>
-        <div style={styles.schoolAvatar}>{initialsFor(submission.school)}</div>
+        <div style={styles.schoolAvatar}>{initialsFor(title)}</div>
         <div style={styles.submissionTitleBlock}>
-          <h3 style={styles.schoolName}>{submission.school}</h3>
+          <h3 style={styles.schoolName}>{title}</h3>
           <p style={styles.schoolMeta}>
-            {SCHOOL_GROUPS[submission.group]} - {submission.submittedBy}
+            {groupLabel} - {submittedBy}
           </p>
         </div>
         <StatusBadge status={submission.status} />
@@ -374,8 +410,8 @@ function SubmissionCard({ submission, onOpen }) {
 
       <div style={styles.submissionInfoGrid}>
         <InfoPill label="Submitted on" value={formatDate(submission.submittedOn)} />
-        <InfoPill label="Sections" value={submission.sections.length} />
-        <InfoPill label="Attachments" value={submission.attachments.length} />
+        <InfoPill label="Sections" value={sections.length} />
+        <InfoPill label="Attachments" value={attachments.length} />
       </div>
 
       <div style={styles.cardActions}>
@@ -388,6 +424,8 @@ function SubmissionCard({ submission, onOpen }) {
 function FullFormReview({ submission, reportMode, onBack, onApprove, onGenerateReport }) {
   const submittedForm = loadSubmittedForm(submission.auditType);
   const sections = sectionsForAudit(submission.auditType);
+  const title = titleForSubmission(submission);
+  const submittedBy = submittedByFor(submission);
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
   const isLastSection = activeSectionIndex === sections.length - 1;
   const isApproved = submission.status === "approved";
@@ -410,8 +448,8 @@ function FullFormReview({ submission, reportMode, onBack, onApprove, onGenerateR
         )}
         <div style={styles.fullReviewTitleBlock}>
           <p style={styles.kicker}>{auditLabels[submission.auditType]}</p>
-          <h2 style={styles.fullReviewTitle}>{submission.school}</h2>
-          <p style={styles.modalMeta}>{submission.submittedBy} - Submitted {formatDate(submission.submittedOn)}</p>
+          <h2 style={styles.fullReviewTitle}>{title}</h2>
+          <p style={styles.modalMeta}>{submittedBy} - Submitted {formatDate(submission.submittedOn)}</p>
         </div>
         <StatusBadge status={submission.status} />
       </div>
@@ -737,7 +775,12 @@ function PrintStyles() {
 }
 
 function formatDate(value) {
-  return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
+  if (!value) return "-";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(date);
 }
 
 const styles = {

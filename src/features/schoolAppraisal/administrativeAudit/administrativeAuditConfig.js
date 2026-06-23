@@ -255,7 +255,7 @@ export const administrativeAuditModules = [
     number: "D",
     title: "Student Activities (Extension and Outreach Activities)",
     owner: "Dean Student Welfare",
-    note: "(Data to be provided by Dean /Director Student Affairs)",
+    note: "(Data to be provided by Dean Student Welfare)",
     tables: [
       {
         id: "hackathons",
@@ -288,8 +288,8 @@ export const administrativeAuditModules = [
     id: "section-e-placement-training",
     number: "E",
     title: "Student Activities (Extension and Outreach Activities)",
-    owner: "Dean Placement",
-    note: "(Data to be provided by Dean Industry and Corporate relations, T & P)",
+    owner: "Dean Placements",
+    note: "(Data to be provided by Dean Placements)",
     blocks: [
       {
         type: "text",

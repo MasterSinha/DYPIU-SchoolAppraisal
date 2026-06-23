@@ -357,7 +357,7 @@ function Sidebar({ activeModuleId, setActiveModuleId, profile, onLogout }) {
       subtitle="School Appraisal"
       badge="AA"
       roleTitle="Administrative Module"
-      roleText="Registrar · HR · DSW · Placement"
+      roleText="Registrar / HR / DSW / Dean Placements"
       items={[...administrativeAuditModules, administrativeSummaryModule]}
       activeId={activeModuleId}
       onChange={setActiveModuleId}

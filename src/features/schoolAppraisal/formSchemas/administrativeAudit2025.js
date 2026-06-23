@@ -2,7 +2,7 @@ export const administrativeAudit2025Schema = {
   id: "administrative-audit-2025-26",
   title: "Internal Administrative Audit",
   academicYear: "July, 2025 - June, 2026",
-  ownerRoles: ["registrar", "hr", "dean-student-welfare", "dean-placement"],
+  ownerRoles: ["registrar", "hr", "dean-student-welfare", "dean-placements"],
   sections: [
     {
       id: "university-information",
@@ -53,7 +53,7 @@ export const administrativeAudit2025Schema = {
     },
     {
       id: "student-affairs",
-      title: "D. Student Activities - Dean / Director Student Affairs",
+      title: "D. Student Activities - Dean Student Welfare",
       ownerRole: "dean-student-welfare",
       tables: [
         "Hackathons and Ideation workshops",
@@ -66,7 +66,7 @@ export const administrativeAudit2025Schema = {
     {
       id: "placement-training",
       title: "E. Placement, Internship and Training Activities",
-      ownerRole: "dean-placement",
+      ownerRole: "dean-placements",
       tables: [
         "Placement Activities",
         "Internship Activities",

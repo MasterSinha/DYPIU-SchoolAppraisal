@@ -9,10 +9,14 @@ export default function DirectorDashboard() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState(academicAudit2025Schema.sections[0].id);
   const [reportMode, setReportMode] = useState(false);
+  const directorSchool = sessionStorage.getItem("school");
+  const displaySchool = !directorSchool || directorSchool === "Director of Schools"
+    ? "School of Computer Science & Applications"
+    : directorSchool;
   const profile = {
-    name: sessionStorage.getItem("name") || "Director of Schools",
+    name: sessionStorage.getItem("name") || "Director",
     designation: sessionStorage.getItem("designation") || "Director",
-    school: sessionStorage.getItem("school") || "School",
+    school: displaySchool,
     email: sessionStorage.getItem("email") || sessionStorage.getItem("username") || "",
   };
 
@@ -28,7 +32,7 @@ export default function DirectorDashboard() {
         title="School Appraisal"
         subtitle="D. Y. Patil International University"
         roleTitle="Academic Audit"
-        roleText="Director of Schools"
+        roleText={profile.school}
         items={[...academicAudit2025Schema.sections, { id: "summary", title: "Summary" }]}
         activeId={activeSectionId}
         onChange={(sectionId) => { setReportMode(false); setActiveSectionId(sectionId); }}
