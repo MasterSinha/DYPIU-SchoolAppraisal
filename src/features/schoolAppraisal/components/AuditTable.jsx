@@ -25,17 +25,17 @@ export default function AuditTable({
   };
 
   return (
-    <section className="audit-table-card" style={styles.wrap}>
+    <section className="audit-table-card">
       {table.showTitle !== false && (
-        <div style={styles.header}>
-          <h3 style={styles.title}>{table.title}</h3>
+        <div className="audit-table-card__header">
+          <h3 className="audit-table-card__title">{table.title}</h3>
         </div>
       )}
 
       {!!table.notes?.length && (
-        <div style={styles.notes}>
+        <div className="audit-table-card__notes">
           {table.notes.map((note) => (
-            <div key={note} style={styles.note}>
+            <div key={note} className="audit-table-card__note">
               {note}
             </div>
           ))}
@@ -43,15 +43,14 @@ export default function AuditTable({
       )}
 
       {!!table.fields?.length && (
-        <div style={styles.embeddedFields}>
+        <div className="audit-table-card__embedded-fields">
           {table.fields.map((field) => (
-            <label key={field.id} style={styles.embeddedField}>
-              <span style={styles.embeddedLabel}>{field.label}</span>
+            <label key={field.id} className="audit-table-card__embedded-field">
+              <span className="audit-table-card__embedded-label">{field.label}</span>
               <input
                 value={values[field.id] ?? ""}
                 onChange={(event) => onFieldChange(field.id, event.target.value)}
-                className="audit-control"
-                style={styles.embeddedInput}
+                className="audit-control audit-table-card__embedded-input"
                 type={field.type || "text"}
               />
             </label>
@@ -59,12 +58,12 @@ export default function AuditTable({
         </div>
       )}
 
-      <div style={styles.scroller}>
-        <table style={{ ...styles.table, minWidth: Math.max(760, columns.length * 180) }}>
+      <div className="audit-table-card__scroller">
+        <table className="audit-table-card__table" style={{ minWidth: Math.max(760, columns.length * 180) }}>
           <thead>
             <tr>
               {columns.map((column) => (
-                <th key={column} style={{ ...styles.th, ...(serialColumnFor([column]) ? styles.serialCell : {}) }}>
+                <th key={column} className={`audit-table-card__th${serialColumnFor([column]) ? " audit-table-card__serial" : ""}`}>
                   {column}
                 </th>
               ))}
@@ -74,10 +73,10 @@ export default function AuditTable({
             {rows.map((row, rowIndex) => (
               <tr key={`${table.id}-${rowIndex}`}>
                 {columns.map((column) => (
-                  <td key={column} style={{ ...styles.td, ...(serialColumnFor([column]) ? styles.serialCell : {}) }}>
+                  <td key={column} className={`audit-table-card__td${serialColumnFor([column]) ? " audit-table-card__serial" : ""}`}>
                     {isAttachmentColumn(column) ? (
-                      <div style={styles.attachmentCell}>
-                        <label className="btn btn-outline" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                      <div className="audit-table-card__attachment-cell">
+                        <label className="btn btn-outline">
                           Add Attachment
                           <input
                             type="file"
@@ -89,26 +88,22 @@ export default function AuditTable({
                                 url: URL.createObjectURL(file),
                               });
                             }}
-                            style={styles.fileInput}
+                            className="audit-table-card__file-input"
                             aria-label={`${table.title} ${column}`}
                           />
                         </label>
                         {row[column]?.url && (
-                          <a href={row[column].url} target="_blank" rel="noreferrer" style={styles.attachmentLink}>
+                          <a href={row[column].url} target="_blank" rel="noreferrer" className="audit-table-card__attachment-link">
                             View Attachment
                           </a>
                         )}
-                        {row[column]?.name && <span style={styles.fileName}>{row[column].name}</span>}
+                        {row[column]?.name && <span className="audit-table-card__file-name">{row[column].name}</span>}
                       </div>
                     ) : (
-                      <input className="audit-table-input"
+                      <input
+                        className={`audit-table-input audit-table-card__cell-input${serialColumnFor([column]) ? " audit-table-card__serial-input" : ""}`}
                         value={row[column] ?? ""}
                         onChange={(event) => handleCellChange(rowIndex, column, event.target.value)}
-                        style={{
-                          ...styles.cellInput,
-                          ...(serialColumnFor([column]) ? styles.serialInput : {}),
-                          background: serialColumnFor([column]) ? "#f8fafc" : "#fff",
-                        }}
                         readOnly={Boolean(serialColumnFor([column]))}
                         aria-label={`${table.title} ${column}`}
                       />
@@ -119,7 +114,7 @@ export default function AuditTable({
             ))}
             {!rows.length && (
               <tr>
-                <td style={styles.emptyCell} colSpan={columns.length}>
+                <td className="audit-table-card__empty" colSpan={columns.length}>
                   No rows added.
                 </td>
               </tr>
@@ -128,7 +123,7 @@ export default function AuditTable({
         </table>
       </div>
 
-      <div style={styles.footer}>
+      <div className="audit-table-card__footer">
         <button type="button" className="btn btn-secondary" onClick={onAddRow}>
           Add Row
         </button>
@@ -139,186 +134,3 @@ export default function AuditTable({
     </section>
   );
 }
-
-const styles = {
-  wrap: {
-    border: "1px solid #dbe3ef",
-    borderRadius: 13,
-    background: "#fff",
-    overflow: "hidden",
-  },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 12,
-    margin: 0,
-    padding: "15px 17px",
-    borderBottom: "1px solid #e8edf4",
-    background: "#f8fafc",
-  },
-  title: {
-    margin: 0,
-    fontSize: 14,
-    lineHeight: 1.35,
-    color: "#0f172a",
-    fontWeight: 700,
-  },
-  notes: {
-    padding: "0 14px 12px",
-    color: "#334155",
-    fontSize: 14,
-    lineHeight: 1.6,
-  },
-  note: {
-    paddingLeft: 8,
-  },
-  embeddedFields: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-    gap: 14,
-    padding: "12px 14px",
-    borderBottom: "1px solid #e5edf7",
-    background: "#fff",
-  },
-  embeddedField: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-  },
-  embeddedLabel: {
-    color: "#334155",
-    fontSize: 14,
-    fontWeight: 800,
-  },
-  embeddedInput: {
-    width: "100%",
-    border: "1px solid #cbd5e1",
-    borderRadius: 9,
-    padding: "10px 11px",
-    color: "#0f172a",
-    background: "#fff",
-    outline: "none",
-  },
-  scroller: {
-    width: "100%",
-    overflowX: "auto",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-  },
-  th: {
-    padding: "11px 12px",
-    borderBottom: "1px solid #dbe3ef",
-    borderRight: "1px solid #e5edf7",
-    color: "#334155",
-    background: "#f8fafc",
-    fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: ".025em",
-    textAlign: "left",
-    whiteSpace: "normal",
-  },
-  serialCell: {
-    width: 72,
-    minWidth: 72,
-    maxWidth: 72,
-  },
-  td: {
-    padding: 8,
-    borderBottom: "1px solid #edf2f7",
-    borderRight: "1px solid #edf2f7",
-    verticalAlign: "top",
-  },
-  cellInput: {
-    width: "100%",
-    minWidth: 120,
-    border: "1px solid #cbd5e1",
-    borderRadius: 8,
-    padding: "9px 10px",
-    color: "#0f172a",
-    background: "#fff",
-    outline: "none",
-  },
-  serialInput: {
-    minWidth: 44,
-    width: 54,
-    textAlign: "center",
-    fontWeight: 700,
-    fontSize: 14,
-  },
-  secondaryButton: {
-    flex: "0 0 auto",
-    border: "1px solid #2563eb",
-    borderRadius: 8,
-    color: "#2563eb",
-    background: "#fff",
-    padding: "8px 12px",
-    fontSize: 14,
-    fontWeight: 800,
-    cursor: "pointer",
-  },
-  removeButton: {
-    border: "1px solid #dc2626",
-    borderRadius: 8,
-    color: "#dc2626",
-    background: "#fff",
-    padding: "8px 12px",
-    fontSize: 14,
-    fontWeight: 800,
-    cursor: "pointer",
-  },
-  footer: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: 10,
-    padding: "12px 14px",
-    borderTop: "1px solid #e5edf7",
-    background: "#fbfcfe",
-  },
-  attachmentCell: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    minWidth: 180,
-  },
-  attachmentButton: {
-    position: "relative",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "fit-content",
-    border: "1px solid #2563eb",
-    borderRadius: 8,
-    color: "#2563eb",
-    background: "#fff",
-    padding: "8px 12px",
-    fontSize: 14,
-    fontWeight: 800,
-    cursor: "pointer",
-  },
-  fileInput: {
-    position: "absolute",
-    inset: 0,
-    opacity: 0,
-    cursor: "pointer",
-  },
-  attachmentLink: {
-    color: "#2563eb",
-    fontSize: 14,
-    fontWeight: 800,
-    textDecoration: "none",
-  },
-  fileName: {
-    color: "#64748b",
-    fontSize: 14,
-    wordBreak: "break-word",
-  },
-  emptyCell: {
-    padding: 18,
-    textAlign: "center",
-    color: "#64748b",
-    fontSize: 14,
-  },
-};

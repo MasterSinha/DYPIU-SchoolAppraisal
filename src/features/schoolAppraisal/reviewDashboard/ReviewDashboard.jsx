@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import universityLogo from "../../../assets/images/image.png";
 import AppSidebar from "../components/AppSidebar";
@@ -20,14 +20,12 @@ const statusLabels = {
   submitted: "Submitted",
   "under-review": "Under Review",
   approved: "Approved",
-  "sent-back": "Sent Back",
 };
 
 const statusStyles = {
   submitted: { color: "#1d4ed8", background: "#dbeafe", border: "#bfdbfe" },
   "under-review": { color: "#92400e", background: "#fef3c7", border: "#fde68a" },
   approved: { color: "#166534", background: "#dcfce7", border: "#bbf7d0" },
-  "sent-back": { color: "#991b1b", background: "#fee2e2", border: "#fecaca" },
 };
 
 const auditLabels = {
@@ -41,14 +39,30 @@ const groupTabs = [
   { id: "nonEngineering", label: "Non-Engineering" },
 ];
 
+const allowedReviewStatuses = new Set(["submitted", "under-review", "approved"]);
+const normalizeReviewStatus = (status) => allowedReviewStatuses.has(status) ? status : "submitted";
+
+const sanitizeSubmissions = (submissions) => ({
+  academic: (submissions.academic || []).map((submission) => ({
+    ...submission,
+    status: normalizeReviewStatus(submission.status),
+  })),
+  administrative: (submissions.administrative || []).map((submission) => ({
+    ...submission,
+    status: normalizeReviewStatus(submission.status),
+  })),
+});
+
 const loadSubmissions = () => {
   const saved = window.localStorage.getItem(STORAGE_KEY);
-  if (!saved) return initialReviewSubmissions;
+  if (!saved) return sanitizeSubmissions(initialReviewSubmissions);
 
   try {
-    return { ...initialReviewSubmissions, ...JSON.parse(saved) };
+    const sanitized = sanitizeSubmissions({ ...initialReviewSubmissions, ...JSON.parse(saved) });
+    saveSubmissions(sanitized);
+    return sanitized;
   } catch {
-    return initialReviewSubmissions;
+    return sanitizeSubmissions(initialReviewSubmissions);
   }
 };
 
@@ -91,6 +105,8 @@ export default function ReviewDashboard() {
   const [submissions, setSubmissions] = useState(loadSubmissions);
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [printReviewAfterRender, setPrintReviewAfterRender] = useState(false);
+  const [reportMode, setReportMode] = useState(false);
   const role = sessionStorage.getItem("role") || "iqac";
   const roleConfig = REVIEW_ROLE_CONFIG[role] || REVIEW_ROLE_CONFIG.iqac;
   const profile = {
@@ -120,13 +136,26 @@ export default function ReviewDashboard() {
     );
   };
 
-  const confirmStatusChange = (submission, status) => {
-    const action = status === "approved" ? "approve" : "send back";
-    const ok = window.confirm(`Do you want to ${action} ${submission.school} ${auditLabels[submission.auditType]}?`);
+  useEffect(() => {
+    if (!printReviewAfterRender) return undefined;
+
+    const timer = window.setTimeout(() => {
+      window.print();
+      setPrintReviewAfterRender(false);
+      setReportMode(false);
+    }, 150);
+
+    return () => window.clearTimeout(timer);
+  }, [printReviewAfterRender]);
+
+  const confirmApprove = (submission) => {
+    if (submission.status === "approved") return;
+
+    const ok = window.confirm(`Do you want to approve ${submission.school} ${auditLabels[submission.auditType]}?`);
     if (!ok) return;
 
     updateSubmission(submission.auditType, submission.id, {
-      status,
+      status: "approved",
       reviewedBy: profile.name,
       reviewedOn: new Date().toISOString(),
     });
@@ -152,6 +181,7 @@ export default function ReviewDashboard() {
           activeId={activeView}
           onChange={(viewId) => {
             setSelectedSubmission(null);
+            setReportMode(false);
             setActiveView(viewId);
           }}
           profile={profile}
@@ -177,10 +207,16 @@ export default function ReviewDashboard() {
           {selectedSubmission ? (
             <FullFormReview
               submission={selectedSubmission}
-              onBack={() => setSelectedSubmission(null)}
-              onRemarksChange={(remarks) => updateSubmission(selectedSubmission.auditType, selectedSubmission.id, { remarks })}
-              onApprove={() => confirmStatusChange(selectedSubmission, "approved")}
-              onSendBack={() => confirmStatusChange(selectedSubmission, "sent-back")}
+              reportMode={reportMode}
+              onBack={() => {
+                setReportMode(false);
+                setSelectedSubmission(null);
+              }}
+              onApprove={() => confirmApprove(selectedSubmission)}
+              onGenerateReport={() => {
+                setReportMode(true);
+                setPrintReviewAfterRender(true);
+              }}
             />
           ) : activeView === "overview" ? (
             <OverviewPanel
@@ -228,7 +264,7 @@ function buildMetrics(submissions) {
       metrics[submission.auditType] += 1;
       return metrics;
     },
-    { total: 0, submitted: 0, "under-review": 0, approved: 0, "sent-back": 0, academic: 0, administrative: 0 }
+    { total: 0, submitted: 0, "under-review": 0, approved: 0, academic: 0, administrative: 0 }
   );
 }
 
@@ -245,7 +281,7 @@ function OverviewPanel({ metrics, submissions, onOpen }) {
         <MetricCard label="Total forms" value={metrics.total} />
         <MetricCard label="Pending review" value={metrics.submitted + metrics["under-review"]} />
         <MetricCard label="Approved" value={metrics.approved} />
-        <MetricCard label="Sent back" value={metrics["sent-back"]} />
+        <MetricCard label="Audit types" value="2" />
       </div>
 
       <div style={styles.splitGrid}>
@@ -349,21 +385,29 @@ function SubmissionCard({ submission, onOpen }) {
   );
 }
 
-function FullFormReview({ submission, onBack, onRemarksChange, onApprove, onSendBack }) {
+function FullFormReview({ submission, reportMode, onBack, onApprove, onGenerateReport }) {
   const submittedForm = loadSubmittedForm(submission.auditType);
   const sections = sectionsForAudit(submission.auditType);
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
   const isLastSection = activeSectionIndex === sections.length - 1;
-  const hasRemarks = Boolean(submission.remarks.trim());
+  const isApproved = submission.status === "approved";
   const goToPreviousSection = () => setActiveSectionIndex((index) => Math.max(0, index - 1));
   const goToNextSection = () => setActiveSectionIndex((index) => Math.min(sections.length - 1, index + 1));
 
   return (
     <section style={styles.fullReviewPage}>
-      <div style={styles.fullReviewHeader}>
-        <button type="button" className="btn btn-secondary" onClick={onBack}>
-          Back
-        </button>
+      <div
+        className="full-review-header-print"
+        style={{
+          ...styles.fullReviewHeader,
+          ...(reportMode ? { gridTemplateColumns: "minmax(0, 1fr) auto" } : {}),
+        }}
+      >
+        {!reportMode && (
+          <button type="button" className="btn btn-secondary review-dashboard-print-hidden" onClick={onBack}>
+            Back
+          </button>
+        )}
         <div style={styles.fullReviewTitleBlock}>
           <p style={styles.kicker}>{auditLabels[submission.auditType]}</p>
           <h2 style={styles.fullReviewTitle}>{submission.school}</h2>
@@ -372,20 +416,23 @@ function FullFormReview({ submission, onBack, onRemarksChange, onApprove, onSend
         <StatusBadge status={submission.status} />
       </div>
 
-      <SectionReviewNav
-        sections={sections}
-        activeIndex={activeSectionIndex}
-        onChange={setActiveSectionIndex}
-      />
+      {!reportMode && (
+        <SectionReviewNav
+          sections={sections}
+          activeIndex={activeSectionIndex}
+          onChange={setActiveSectionIndex}
+        />
+      )}
 
       <SubmittedFormViewer
         sections={sections}
         formData={submittedForm}
         auditType={submission.auditType}
         activeSectionIndex={activeSectionIndex}
+        showAllSections={reportMode}
       />
 
-      <div style={styles.fullReviewActions}>
+      {!reportMode && <div className="review-dashboard-print-hidden" style={styles.fullReviewActions}>
         {!isLastSection ? (
           <div style={styles.reviewPager}>
             <button type="button" className="btn btn-secondary" onClick={goToPreviousSection} disabled={activeSectionIndex === 0}>
@@ -397,27 +444,18 @@ function FullFormReview({ submission, onBack, onRemarksChange, onApprove, onSend
           </div>
         ) : (
           <div style={styles.finalReviewPanel}>
-            <label style={styles.remarksLabel}>
-              Review Remarks
-              <textarea
-                value={submission.remarks}
-                onChange={(event) => onRemarksChange(event.target.value)}
-                placeholder="Write remarks before approving or sending back"
-                style={{ ...styles.remarksInput, minHeight: 120 }}
-              />
-            </label>
             <div style={styles.finalActionRow}>
               <span style={styles.reviewHint}>
-                Approve and Send Back are enabled after remarks are written.
+                {isApproved ? "This form is approved. Report generation is still available." : "Review the last section before generating report or approving."}
               </span>
               <div style={styles.cardActions}>
-                <button type="button" className="btn btn-primary" onClick={onApprove} disabled={!hasRemarks}>Approve</button>
-                <button type="button" className="btn btn-danger" onClick={onSendBack} disabled={!hasRemarks}>Send Back</button>
+                <button type="button" className="btn btn-secondary" onClick={onGenerateReport}>Generate Report</button>
+                {!isApproved && <button type="button" className="btn btn-primary" onClick={onApprove}>Approve</button>}
               </div>
             </div>
           </div>
         )}
-      </div>
+      </div>}
     </section>
   );
 }
@@ -440,8 +478,9 @@ function SectionReviewNav({ sections, activeIndex, onChange }) {
   );
 }
 
-function SubmittedFormViewer({ sections, formData, auditType, activeSectionIndex }) {
+function SubmittedFormViewer({ sections, formData, auditType, activeSectionIndex, showAllSections = false }) {
   const activeSection = sections[activeSectionIndex] || sections[0];
+  const visibleSections = showAllSections ? sections : activeSection ? [activeSection] : [];
 
   return (
     <div style={styles.formViewer}>
@@ -451,18 +490,18 @@ function SubmittedFormViewer({ sections, formData, auditType, activeSectionIndex
         </div>
       )}
 
-      {activeSection && (
-        <section key={activeSection.id} style={styles.reviewSection}>
+      {visibleSections.map((section) => (
+        <section key={section.id} style={styles.reviewSection}>
           <h3 style={styles.reviewSectionTitle}>
-            {activeSection.number ? `${activeSection.number}. ${activeSection.title}` : activeSection.title}
+            {section.number ? `${section.number}. ${section.title}` : section.title}
           </h3>
-          {activeSection.note && <p style={styles.reviewSectionNote}>{activeSection.note}</p>}
+          {section.note && <p style={styles.reviewSectionNote}>{section.note}</p>}
 
-          {blocksFor(activeSection).map((block, blockIndex) => {
+          {blocksFor(section).map((block, blockIndex) => {
             if (block.type === "fields") {
               return (
                 <ReadOnlyFieldGrid
-                  key={`${activeSection.id}-fields-${blockIndex}`}
+                  key={`${section.id}-fields-${blockIndex}`}
                   fields={block.fields}
                   values={formData.values}
                 />
@@ -471,14 +510,14 @@ function SubmittedFormViewer({ sections, formData, auditType, activeSectionIndex
 
             if (block.type === "text") {
               return (
-                <p key={`${activeSection.id}-text-${blockIndex}`} style={styles.reviewText}>
+                <p key={`${section.id}-text-${blockIndex}`} style={styles.reviewText}>
                   {block.text}
                 </p>
               );
             }
 
             return (
-              <div key={`${activeSection.id}-tables-${blockIndex}`} style={styles.reviewTables}>
+              <div key={`${section.id}-tables-${blockIndex}`} style={styles.reviewTables}>
                 {block.tables.map((table) => (
                   <ReadOnlyTable
                     key={table.id}
@@ -491,7 +530,7 @@ function SubmittedFormViewer({ sections, formData, auditType, activeSectionIndex
             );
           })}
         </section>
-      )}
+      ))}
     </div>
   );
 }
@@ -638,13 +677,17 @@ function StatusBadge({ status }) {
 
 function LogoutModal({ onCancel, onConfirm }) {
   return (
-    <div style={styles.modalBackdrop} onClick={onCancel}>
-      <div style={styles.logoutModal} onClick={(event) => event.stopPropagation()}>
-        <div style={styles.modalTitle}>Confirm Logout</div>
-        <div style={styles.modalMeta}>You are about to leave the review dashboard.</div>
-        <div style={styles.modalActions}>
-          <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
-          <button type="button" className="btn btn-danger" onClick={onConfirm}>Logout</button>
+    <div className="modal-backdrop" onClick={onCancel}>
+      <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-title">Confirm Logout</div>
+        <div className="modal-text">You are about to leave School Appraisal. Any unsaved edits will be lost.</div>
+        <div className="modal-actions">
+          <button type="button" onClick={onCancel} className="modal-cancel">
+            Cancel
+          </button>
+          <button type="button" onClick={onConfirm} className="modal-confirm">
+            Logout
+          </button>
         </div>
       </div>
     </div>
@@ -660,8 +703,12 @@ function PrintStyles() {
       }
       @media print {
         .app-sidebar,
-        .btn {
+        .review-dashboard-print-hidden {
           display: none !important;
+        }
+        .full-review-header-print {
+          position: static !important;
+          box-shadow: none !important;
         }
         .review-dashboard-shell {
           display: block !important;
@@ -674,6 +721,9 @@ function PrintStyles() {
         }
         body {
           background: #fff !important;
+        }
+        .review-dashboard-main section {
+          break-inside: auto;
         }
       }
       .review-dashboard-main .btn:disabled {
@@ -778,7 +828,7 @@ const styles = {
     margin: 0,
     color: "#0f172a",
     fontSize: 18,
-    fontWeight: 800,
+    fontWeight: 700,
     lineHeight: 1.25,
   },
   schoolCount: {
@@ -789,7 +839,7 @@ const styles = {
     borderRadius: 999,
     padding: "8px 12px",
     fontSize: 14,
-    fontWeight: 800,
+    fontWeight: 700,
   },
   metricGrid: {
     display: "grid",
@@ -806,7 +856,7 @@ const styles = {
     gap: 5,
     color: "#64748b",
     fontSize: 14,
-    fontWeight: 800,
+    fontWeight: 700,
     textTransform: "uppercase",
   },
   splitGrid: {
@@ -825,7 +875,7 @@ const styles = {
     margin: "0 0 14px",
     color: "#0f172a",
     fontSize: 18,
-    fontWeight: 800,
+    fontWeight: 700,
   },
   auditSummaryRows: {
     display: "flex",
@@ -876,7 +926,7 @@ const styles = {
     gap: 8,
     cursor: "pointer",
     fontSize: 14,
-    fontWeight: 800,
+    fontWeight: 700,
     fontFamily: "inherit",
   },
   activeTab: {
@@ -924,7 +974,7 @@ const styles = {
     color: "#fff",
     background: "linear-gradient(135deg, #2563eb, #0ea5e9)",
     fontSize: 12,
-    fontWeight: 900,
+    fontWeight: 700,
   },
   submissionTitleBlock: {
     flex: 1,
@@ -934,7 +984,7 @@ const styles = {
     margin: 0,
     color: "#0f172a",
     fontSize: 18,
-    fontWeight: 800,
+    fontWeight: 700,
     lineHeight: 1.35,
   },
   schoolMeta: {
@@ -947,7 +997,7 @@ const styles = {
     borderRadius: 999,
     padding: "6px 10px",
     fontSize: 12,
-    fontWeight: 900,
+    fontWeight: 700,
     whiteSpace: "nowrap",
   },
   submissionInfoGrid: {
@@ -965,27 +1015,6 @@ const styles = {
     gap: 4,
     color: "#64748b",
     fontSize: 12,
-  },
-  remarksLabel: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 8,
-    color: "#334155",
-    fontSize: 14,
-    fontWeight: 800,
-  },
-  remarksInput: {
-    width: "100%",
-    minHeight: 82,
-    border: "1px solid #cbd5e1",
-    borderRadius: 10,
-    padding: "10px 11px",
-    color: "#0f172a",
-    background: "#fff",
-    outline: "none",
-    resize: "vertical",
-    fontSize: 14,
-    lineHeight: 1.5,
   },
   cardActions: {
     display: "flex",
@@ -1019,7 +1048,7 @@ const styles = {
     margin: "0 0 5px",
     color: "#0f172a",
     fontSize: 18,
-    fontWeight: 900,
+    fontWeight: 700,
     lineHeight: 1.25,
   },
   sectionNav: {
@@ -1043,7 +1072,7 @@ const styles = {
     color: "#334155",
     padding: "9px 12px",
     fontSize: 14,
-    fontWeight: 900,
+    fontWeight: 700,
     cursor: "pointer",
     fontFamily: "inherit",
   },
@@ -1087,7 +1116,7 @@ const styles = {
   reviewHint: {
     color: "#64748b",
     fontSize: 14,
-    fontWeight: 800,
+    fontWeight: 700,
   },
   modalBackdrop: {
     position: "fixed",
@@ -1145,36 +1174,37 @@ const styles = {
     color: "#92400e",
     padding: "12px 14px",
     fontSize: 14,
-    fontWeight: 800,
+    fontWeight: 700,
     lineHeight: 1.5,
   },
   reviewSection: {
     border: "1px solid #dbe3ef",
-    borderRadius: 12,
+    borderRadius: 16,
     background: "#fff",
-    padding: 16,
+    padding: 24,
+    boxShadow: "0 12px 35px rgba(15, 23, 42, 0.045)",
   },
   reviewSectionTitle: {
     margin: "0 0 14px",
-    padding: "12px 14px",
-    borderLeft: "4px solid #2563eb",
-    borderRadius: 6,
-    background: "#eff6ff",
+    padding: "0 0 15px",
+    borderBottom: "1px solid #edf1f6",
     color: "#0f172a",
-    fontSize: 18,
-    fontWeight: 900,
+    fontSize: 17,
+    fontWeight: 700,
+    letterSpacing: "-.015em",
+    lineHeight: 1.3,
   },
   reviewSectionNote: {
     margin: "-6px 0 14px",
     color: "#475569",
-    fontSize: 14,
-    fontWeight: 800,
+    fontSize: 12,
+    fontWeight: 600,
   },
   reviewText: {
     margin: "0 0 14px",
     color: "#0f172a",
     fontSize: 14,
-    fontWeight: 800,
+    fontWeight: 700,
   },
   reviewTables: {
     display: "flex",
@@ -1189,10 +1219,15 @@ const styles = {
   },
   reviewSubheading: {
     gridColumn: "1 / -1",
-    margin: "4px 0 0",
+    margin: "8px 0 0",
+    padding: "10px 12px",
+    borderLeft: "4px solid #2563eb",
+    borderRadius: 10,
     color: "#0f172a",
-    fontSize: 18,
-    fontWeight: 900,
+    background: "#eff6ff",
+    fontSize: 15,
+    fontWeight: 700,
+    lineHeight: 1.35,
   },
   readOnlyField: {
     border: "1px solid #e2e8f0",
@@ -1201,9 +1236,9 @@ const styles = {
     padding: 10,
   },
   readOnlyLabel: {
-    color: "#64748b",
-    fontSize: 14,
-    fontWeight: 900,
+    color: "#334155",
+    fontSize: 12,
+    fontWeight: 650,
     marginBottom: 5,
   },
   readOnlyValue: {
@@ -1214,19 +1249,25 @@ const styles = {
   },
   readOnlyTableBlock: {
     marginTop: 8,
+    border: "1px solid #dbe3ef",
+    borderRadius: 13,
+    background: "#fff",
+    overflow: "hidden",
+    boxShadow: "0 5px 18px rgba(15, 23, 42, .035)",
   },
   readOnlyTableTitle: {
-    margin: "0 0 8px",
-    padding: "10px 12px",
-    borderLeft: "4px solid #2563eb",
-    borderRadius: 6,
-    background: "#eff6ff",
+    margin: 0,
+    padding: "15px 17px",
+    borderBottom: "1px solid #e8edf4",
+    background: "#f8fafc",
     color: "#0f172a",
-    fontSize: 18,
-    fontWeight: 900,
+    fontSize: 14,
+    fontWeight: 700,
+    lineHeight: 1.35,
   },
   readOnlyNotes: {
-    margin: "0 0 8px",
+    margin: 0,
+    padding: "0 14px 12px",
     color: "#334155",
     fontSize: 14,
     lineHeight: 1.6,
@@ -1240,20 +1281,23 @@ const styles = {
     borderCollapse: "collapse",
   },
   readOnlyTh: {
-    padding: "9px 10px",
-    border: "1px solid #cbd5e1",
-    background: "#eef4fb",
+    padding: "11px 12px",
+    borderBottom: "1px solid #dbe3ef",
+    borderRight: "1px solid #e5edf7",
+    background: "#f8fafc",
     color: "#334155",
-    fontSize: 14,
-    fontWeight: 900,
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: ".025em",
     textAlign: "left",
     verticalAlign: "top",
   },
   readOnlyTd: {
     padding: "9px 10px",
-    border: "1px solid #e2e8f0",
+    borderBottom: "1px solid #edf2f7",
+    borderRight: "1px solid #edf2f7",
     color: "#0f172a",
-    fontSize: 14,
+    fontSize: 12.5,
     verticalAlign: "top",
     whiteSpace: "pre-wrap",
   },
@@ -1265,7 +1309,7 @@ const styles = {
   attachmentLink: {
     color: "#2563eb",
     fontSize: 14,
-    fontWeight: 900,
+    fontWeight: 700,
     textDecoration: "none",
   },
   mutedText: {

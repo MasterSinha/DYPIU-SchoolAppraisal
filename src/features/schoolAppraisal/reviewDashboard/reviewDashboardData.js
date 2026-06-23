@@ -89,7 +89,7 @@ const administrativeSections = [
   "F. Observations & Recommendations",
 ];
 
-const statuses = ["submitted", "under-review", "approved", "sent-back"];
+const statuses = ["submitted", "under-review", "approved"];
 
 const buildSubmission = (school, group, auditType, index) => ({
   id: `${auditType}-${school.id}`,
@@ -99,7 +99,6 @@ const buildSubmission = (school, group, auditType, index) => ({
   submittedBy: school.director,
   submittedOn: `2026-06-${String(12 + index).padStart(2, "0")}`,
   status: statuses[index % statuses.length],
-  remarks: "",
   sections: auditType === "academic" ? academicSections : administrativeSections,
   attachments: auditType === "academic"
     ? ["Board of Studies MoM.pdf", "Syllabus revision ATR.pdf", "Faculty proof.zip"]
