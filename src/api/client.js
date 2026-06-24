@@ -1,7 +1,9 @@
 import axios from "axios";
 
+const runtimeApiBaseUrl = globalThis.__APP_CONFIG__?.VITE_API_BASE_URL;
+
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8080",
+  baseURL: runtimeApiBaseUrl || import.meta.env.VITE_API_BASE_URL || "http://localhost:8080",
 });
 
 apiClient.interceptors.request.use((config) => {
